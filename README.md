@@ -1,97 +1,86 @@
-# IronTracker V10 🏋️‍♂️
+# IronTracker V10
 
-> **L'application ultime de suivi de performance pour la musculation.**
-> *SPA (Single Page Application) / PWA (Progressive Web App) / Mobile-First*
+IronTracker V10 est une application de suivi d'entraînement (Progressive Web App) conçue pour la performance et l'autonomie. Elle fonctionne entièrement côté client (Client-Side Only), garantissant la rapidité et la confidentialité des données via le stockage local.
 
-IronTracker V10 est une application web moderne conçue pour les pratiquants de musculation exigeants. Elle fonctionne entièrement dans le navigateur, stocke les données localement (pas de serveur requis) et offre une expérience utilisateur fluide proche d'une application native.
+## Architecture & Fonctionnalités
 
-## ✨ Fonctionnalités Principales
+### Core
+*   **Architecture SPA/PWA :** Application web réactive conçue pour être installée sur mobile (iOS/Android) via la fonction "Ajouter à l'écran d'accueil".
+*   **Local-First :** Persistance des données via `localStorage`. Aucune base de données distante ni création de compte requise.
+*   **Gestion des Données :** Système complet d'export et d'import au format JSON pour la sauvegarde ou le transfert entre appareils.
 
-### 🎯 Suivi d'Entraînement
-- **Interface optimisée mobile :** Gros boutons, saisie rapide, mode sombre (Dark Mode) par défaut.
-- **Séance en direct :** Chronomètre global, timer de repos intelligent (auto-start), calculateur de charge.
-- **RIR / RPE :** Suivi de l'intensité via la méthode "Reps In Reserve".
+### Suivi d'Entraînement
+*   Interface optimisée pour l'utilisation tactile en salle.
+*   Gestion avancée des métriques : Poids, Répétitions, RIR (Reps In Reserve).
+*   Chronomètre de repos automatique et calculs de charge en temps réel.
 
-### 📊 Analytics & Progression
-- **Graphiques de Progression :** Visualisez l'évolution de vos charges et de votre e1RM (Estimated 1 Rep Max) sur n'importe quel exercice.
-- **Volume Hebdomadaire :** Analyse automatique du nombre de séries difficiles par groupe musculaire pour gérer la fatigue.
-- **Ratio Force/Poids :** Suivez votre force relative par rapport à votre poids de corps.
-- **Records (PR) :** Tableau automatique de vos meilleurs performances historiques.
+### Analytics & Progression
+*   **Estimation 1RM (e1RM) :** Calcul dynamique basé sur la formule de Brzycki.
+*   **Volume d'entraînement :** Analyse du volume hebdomadaire par groupe musculaire (filtrage des séries effectives).
+*   **Historique :** Visualisation graphique de la progression linéaire et des records personnels (PR).
 
-### 📚 Gestionnaire de Programmes & Bibliothèque
-- **Programmes Personnalisables :** Créez vos propres routines (Split, Full Body, PPL...). *Le programme PHUL est inclus par défaut.*
-- **Bibliothèque d'Exercices :** +50 exercices pré-enregistrés avec conseils techniques (Setup, Exécution, Erreurs à éviter).
-- **Calculateur 1RM :** Estimez votre max sur une rep à partir de vos performances.
-
-### ⚙️ Technique & Données
-- **100% LocalStorage :** Vos données restent sur votre appareil. Respect total de la vie privée.
-- **Import / Export JSON :** Sauvegardez vos données ou transférez-les sur un autre appareil.
-- **Thèmes :** Personnalisez l'accent de couleur (Bleu, Or, Émeraude, Violet, Rouge).
+### Personnalisation
+*   Éditeur de programmes complet (Split, Full Body, etc.).
+*   Bibliothèque d'exercices extensible avec métadonnées techniques (Setup, Exécution).
+*   Système de thèmes visuels dynamiques.
 
 ---
 
-## 🛠 Tech Stack
+## Stack Technique
 
-Ce projet est construit avec les dernières technologies web pour garantir performance et maintenabilité :
-
-- **Framework :** [React 18](https://react.dev/)
-- **Langage :** [TypeScript](https://www.typescriptlang.org/)
-- **Build Tool :** [Vite](https://vitejs.dev/)
-- **Styling :** [Tailwind CSS](https://tailwindcss.com/)
-- **Graphiques :** [Recharts](https://recharts.org/)
-- **Architecture :** Single Page Application (SPA)
+*   **Runtime :** React 18
+*   **Langage :** TypeScript
+*   **Build System :** Vite
+*   **Styling :** Tailwind CSS
+*   **Visualisation :** Recharts
 
 ---
 
-## 🚀 Installation & Démarrage
+## Installation & Développement
 
-### Pré-requis
-- Node.js (v18 ou supérieur)
+### Prérequis
+*   Node.js (v18+)
+*   npm
 
-### 1. Installation
-Clonez le projet et installez les dépendances :
-
+### Installation des dépendances
 ```bash
 npm install
 ```
 
-### 2. Développement
-Pour lancer le serveur de développement local :
-
+### Serveur de développement
+Lance l'application en mode local avec rechargement à chaud (HMR).
 ```bash
 npm run dev
 ```
 
-### 3. Production (Build)
-Pour créer la version optimisée pour la mise en ligne (dossier `dist`) :
-
+### Compilation (Production)
+Génère les fichiers statiques optimisés dans le dossier `dist`.
 ```bash
 npm run build
 ```
 
 ---
 
-## 🌍 Déploiement
+## Déploiement
 
-Cette application est "statique", elle peut être hébergée gratuitement et facilement partout.
+L'application étant statique, elle peut être hébergée sur n'importe quel serveur web ou CDN.
 
-**Option recommandée (Netlify / Vercel) :**
-1. Exécutez `npm run build`.
-2. Glissez le dossier `dist` généré sur [Netlify Drop](https://app.netlify.com/drop).
-3. Votre app est en ligne !
+**Procédure recommandée (Netlify/Vercel) :**
+1.  Exécuter la commande `npm run build`.
+2.  Déployer le contenu du dossier `dist`.
+
+## Configuration Mobile (PWA)
+
+Pour bénéficier de l'expérience plein écran sans barre d'adresse :
+
+**iOS (Safari) :**
+Bouton Partager > Sur l'écran d'accueil.
+
+**Android (Chrome) :**
+Menu > Installer l'application / Ajouter à l'écran d'accueil.
 
 ---
 
-## 📱 Utilisation Mobile (PWA)
+## Licence
 
-Pour une expérience "App Native" sur iOS ou Android :
-1. Ouvrez le site dans Safari (iOS) ou Chrome (Android).
-2. Appuyez sur "Partager" (iOS) ou le menu "..." (Android).
-3. Sélectionnez **"Sur l'écran d'accueil"**.
-4. L'application se lance maintenant en plein écran, sans barre d'adresse.
-
----
-
-## 📄 Licence
-
-Projet personnel. Utilisation libre.
+Projet personnel open-source.
