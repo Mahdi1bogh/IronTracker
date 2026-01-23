@@ -1,5 +1,5 @@
-
 {
   "name": "IronTracker V10",
-  "description": "A professional-grade workout tracker with AI-powered coaching, progress analytics, and advanced performance metrics."
+  "description": "A simple workout tracker with a programm and movement editor, basic progress analytics, and performance metrics.",
+  "requestFramePermissions": []
 }
