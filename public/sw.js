@@ -9,9 +9,14 @@ const URLS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   self.skipWaiting(); // Force l'activation immédiate
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(URLS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('[SW] Mise en cache des fichiers...');
+        return cache.addAll(URLS_TO_CACHE);
+      })
+      .catch((err) => {
+        console.error('[SW] Echec installation. Vérifiez que manifest.json est bien dans le dossier /public/ ou dist/ :', err);
+      })
   );
 });
 
