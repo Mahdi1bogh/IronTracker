@@ -70,3 +70,8 @@ export enum View {
 }
 
 export type AccentColor = 'blue' | 'emerald' | 'gold' | 'purple' | 'red';
+
+export interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}

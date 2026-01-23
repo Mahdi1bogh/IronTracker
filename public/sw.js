@@ -2,7 +2,10 @@ const CACHE_NAME = 'iron-tracker-v1';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon.svg',
+  'https://cdn.tailwindcss.com',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap'
 ];
 
 // Installation du Service Worker
@@ -15,7 +18,7 @@ self.addEventListener('install', (event) => {
         return cache.addAll(URLS_TO_CACHE);
       })
       .catch((err) => {
-        console.error('[SW] Echec installation. Vérifiez que manifest.json est bien dans le dossier /public/ ou dist/ :', err);
+        console.error('[SW] Echec installation. Un fichier manque peut-être :', err);
       })
   );
 });
@@ -49,16 +52,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stratégie pour les autres ressources (CSS, JS, Images) : Cache First, puis Network
+  // Stratégie pour les autres ressources (CSS, JS, Images, Fonts) : Cache First, puis Network
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request).then((response) => {
-        // Mise en cache dynamique des nouvelles ressources
+        // Mise en cache dynamique des nouvelles ressources valides
+        // On ne cache pas les extensions chrome ou autres protocoles non http
+        if (!event.request.url.startsWith('http')) return response;
+        
         return caches.open(CACHE_NAME).then((cache) => {
-          if (event.request.url.startsWith('http')) {
              cache.put(event.request, response.clone());
-          }
-          return response;
+             return response;
         });
       });
     })

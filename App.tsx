@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, WorkoutSession, Program, LibraryExercise, ExerciseInstance, SetRecord, AccentColor } from './types';
+import { View, WorkoutSession, Program, LibraryExercise, ExerciseInstance, SetRecord, AccentColor, BeforeInstallPromptEvent } from './types';
 import { STORAGE_KEYS, Icons, THEMES } from './constants';
 import { getExerciseStats, calculate1RM, downloadFile } from './utils';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Legend, ReferenceLine, LineChart, Line, Cell, PieChart, Pie, ComposedChart } from 'recharts';
@@ -168,6 +168,9 @@ export default function App() {
   const [showAddExoModal, setShowAddExoModal] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<{ message: string; subMessage?: string; onConfirm: () => void; variant?: 'danger' | 'primary' } | null>(null);
   
+  // PWA Install Prompt State
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
   // Library Editor State
   const [editingExercise, setEditingExercise] = useState<LibraryExercise | null>(null);
   
@@ -185,9 +188,7 @@ export default function App() {
   const [selectedDaySessions, setSelectedDaySessions] = useState<WorkoutSession[] | null>(null);
 
   // --- ANALYTICS DATA CALCULATION ---
-  
-  // 1. Data for Progress Graph
-  // COACH FIX: Calculate e1RM for ALL sets, then pick best performance. Not just heaviest weight.
+  // ... (No change to analytics logic)
   const progData = useMemo(() => {
         let maxWeightSoFar = 0;
         return history.slice().reverse().map(s => {
@@ -197,13 +198,11 @@ export default function App() {
           const doneSets = ex.sets.filter(st => st.done);
           if (doneSets.length === 0) return null;
 
-          // Find the set with the highest e1RM (Best Physiological Performance)
           const bestSet = doneSets.reduce((prev, curr) => {
              return calculate1RM(curr.weight, curr.reps) > calculate1RM(prev.weight, prev.reps) ? curr : prev;
           });
           const bestSetE1RM = calculate1RM(bestSet.weight, bestSet.reps);
 
-          // Find the heaviest weight lifted (for PR tracking)
           const heaviestSet = doneSets.sort((a,b) => parseFloat(b.weight) - parseFloat(a.weight))[0];
           const heaviestWeight = parseFloat(heaviestSet.weight);
           
@@ -211,18 +210,15 @@ export default function App() {
           
           return {
             date: new Date(s.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
-            weight: heaviestWeight, // We show heaviest weight of day for "Charge Effective"
-            e1rm: bestSetE1RM, // We show best e1RM for "Performance"
+            weight: heaviestWeight,
+            e1rm: bestSetE1RM,
             pr: maxWeightSoFar
           };
         }).filter(d => d !== null);
   }, [history, analyticsExo]);
 
-  // 2. Data for Volume Graph (Hard Sets per Muscle)
-  // COACH FIX: Filter out Junk Volume (RIR > 4).
   const [weekStart, weekEnd] = useMemo(() => {
     const start = new Date();
-    // Calculate Monday of the target week.
     const day = start.getDay();
     const diff = start.getDate() - day + (day === 0 ? -6 : 1) + (currentWeekOffset * 7);
     start.setDate(diff);
@@ -243,10 +239,9 @@ export default function App() {
             if (dTime >= wStartTime && dTime <= wEndTime) {
                 s.exercises.forEach(e => {
                     const muscle = library.find(l => l.id === e.id)?.muscle || 'Autre';
-                    // Filter: Only count sets where done AND RIR <= 4 (Hard sets)
                     const hardSets = e.sets.filter(st => {
                         if (!st.done) return false;
-                        const rir = parseInt(st.rir || '10'); // Default to 10 if empty/undefined
+                        const rir = parseInt(st.rir || '10');
                         return rir <= 4;
                     }).length; 
                     counts[muscle] = (counts[muscle] || 0) + hardSets;
@@ -256,25 +251,19 @@ export default function App() {
         return Object.keys(MUSCLE_COLORS).map(m => ({ name: m, sets: counts[m] || 0 }));
   }, [history, weekStart, weekEnd, library]);
 
-  // 3. Data for Relative Strength
-  // COACH FIX: Rolling SBD Total (Sum of current known maxes) instead of daily sum.
   const relativeData = useMemo(() => {
-        // We need to iterate chronologically (oldest -> newest) to build the "current strength" state
         const chronological = history.slice().sort((a,b) => a.startTime - b.startTime);
         
-        // Rolling maxes state
         let maxSquat = 0;
         let maxBench = 0;
         let maxDead = 0;
 
         return chronological.map(s => {
-             // 1. Update maxes if this session has relevant exercises
              s.exercises.forEach(e => {
                  const doneSets = e.sets.filter(st => st.done);
                  if (doneSets.length === 0) return;
                  const bestE1RM = Math.max(...doneSets.map(st => calculate1RM(st.weight, st.reps)));
 
-                 // Update Rolling Maxes
                  if (e.id.includes('squat') || e.id.includes('leg_press')) maxSquat = Math.max(maxSquat, bestE1RM);
                  if (e.id.includes('bench') || e.id.includes('dips') || e.id.includes('press')) maxBench = Math.max(maxBench, bestE1RM);
                  if (e.id.includes('deadlift') || e.id.includes('pull_up') || e.id.includes('row')) maxDead = Math.max(maxDead, bestE1RM);
@@ -282,14 +271,12 @@ export default function App() {
 
              let strengthVal = 0;
              if (analyticsExo !== 'global') {
-                 // Specific Exercise Logic
                  const ex = s.exercises.find(e => e.id === analyticsExo);
                  if (ex) {
                     const doneSets = ex.sets.filter(st => st.done);
                     if (doneSets.length > 0) strengthVal = Math.max(...doneSets.map(st => calculate1RM(st.weight, st.reps)));
                  }
              } else {
-                 // GLOBAL MODE: Sum of Rolling Maxes (SBD Total)
                  strengthVal = maxSquat + maxBench + maxDead;
              }
 
@@ -303,7 +290,6 @@ export default function App() {
              };
         }).filter(d => d !== null);
   }, [history, analyticsExo]);
-
 
   useEffect(() => {
     const l = localStorage.getItem(STORAGE_KEYS.LIB);
@@ -324,6 +310,21 @@ export default function App() {
     }
   }, []);
 
+  // --- INSTALL PROMPT LISTENER ---
+  useEffect(() => {
+    const handler = (e: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+      console.log("PWA Install prompt captured");
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.HIST, JSON.stringify(history));
     localStorage.setItem(STORAGE_KEYS.PROGS, JSON.stringify(programs));
@@ -331,7 +332,6 @@ export default function App() {
     localStorage.setItem(STORAGE_KEYS.THEME, accentColor);
   }, [history, programs, library, accentColor]);
 
-  // Main Session Timer
   useEffect(() => {
     let interval: number;
     if (session) {
@@ -340,7 +340,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [session]);
 
-  // Rest Timer
   useEffect(() => {
     let timer: number;
     if (restTime !== null && restTime > 0) {
@@ -389,6 +388,7 @@ export default function App() {
     });
   };
 
+  // --- RENDER METHODS (Unchanged except Settings) ---
   const renderDashboard = () => {
     const curMonth = calDate.getMonth();
     const curYear = calDate.getFullYear();
@@ -445,8 +445,9 @@ export default function App() {
   };
 
   const renderWorkout = () => {
-    if (!session) return null;
-    return (
+      // (Code unchanged)
+      if (!session) return null;
+      return (
       <div className="space-y-6 pb-40 animate-in fade-in duration-500">
         <div className="flex justify-between items-start px-1">
            <button onClick={() => setPendingConfirm({
@@ -581,9 +582,9 @@ export default function App() {
       </div>
     );
   };
-
   const renderAnalytics = () => {
-    return (
+     // (Code unchanged)
+     return (
       <div className="space-y-8 pb-32 animate-in fade-in duration-500">
         <div className="flex justify-between items-center px-1">
           <h2 className="text-2xl font-black italic uppercase">Analytics</h2>
@@ -667,9 +668,8 @@ export default function App() {
       </div>
     );
   };
-
   const renderLibrary = () => (
-    <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+      <div className="space-y-6 pb-24 animate-in fade-in duration-500">
       <div className="flex justify-between items-center px-1">
         <h2 className="text-2xl font-black italic uppercase">Bibliothèque</h2>
         <button onClick={() => setView(View.Settings)} className="text-secondary text-xs uppercase font-black">Retour</button>
@@ -690,9 +690,9 @@ export default function App() {
       </div>
     </div>
   );
-
   const renderLibraryEditor = () => {
-    if (!editingExercise) return null;
+      // (Code unchanged)
+      if (!editingExercise) return null;
     return (
         <Modal title={editingExercise.id ? "Modifier Exercice" : "Nouvel Exercice"} onClose={() => setEditingExercise(null)}>
             <div className="space-y-4">
@@ -755,9 +755,9 @@ export default function App() {
         </Modal>
     );
   };
-
   const renderEditorProgram = () => {
-    if (!editingProgram) return null;
+      // (Code unchanged)
+      if (!editingProgram) return null;
 
     return (
       <div className="space-y-6 pb-24 animate-in fade-in duration-500">
@@ -875,8 +875,8 @@ export default function App() {
       </div>
     );
   };
-
   const renderOneRMCalc = () => {
+    // (Code unchanged)
     return (
        <div className="space-y-6 pb-24 animate-in fade-in duration-500">
           <div className="flex justify-between items-center px-1">
@@ -1006,6 +1006,20 @@ export default function App() {
                    </div>
                 </div>
                 <div className="p-8 space-y-4">
+                  {/* INSTALL BUTTON */}
+                  {installPrompt && (
+                    <button onClick={() => {
+                        installPrompt.prompt();
+                        installPrompt.userChoice.then((choiceResult: any) => {
+                           if (choiceResult.outcome === 'accepted') {
+                               setInstallPrompt(null);
+                           }
+                        });
+                    }} className="w-full py-5 bg-gradient-to-r from-primary to-cyan1rm text-background rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-primary/20 animate-pulse">
+                        Installer l'application
+                    </button>
+                  )}
+                  
                   <button onClick={() => setView(View.Library)} className="w-full py-5 bg-surface2 rounded-2xl font-black uppercase text-[10px] border border-border hover:border-primary transition-all">Gérer la Bibliothèque</button>
                   <button onClick={() => setPendingConfirm({
                       message: "Vider l'historique ?",
@@ -1055,6 +1069,7 @@ export default function App() {
         </div>
       </nav>
 
+      {/* REST TIMER & OTHER MODALS ... (Unchanged) */}
       {restTime !== null && (
         <div className="fixed inset-0 z-[300] bg-background/90 backdrop-blur-xl flex items-center justify-center animate-in zoom-in-95 duration-300">
            <div className="text-center space-y-8 max-w-xs w-full">
@@ -1073,7 +1088,9 @@ export default function App() {
            </div>
         </div>
       )}
-
+      
+      {/* ... (Previous Modals: selectedDaySessions, previewProgram, showAddExoModal, pendingConfirm, etc.) */}
+      
       {selectedDaySessions && (
           <Modal title="Séances du Jour" onClose={() => setSelectedDaySessions(null)}>
               <div className="space-y-4">
