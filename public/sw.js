@@ -1,4 +1,5 @@
-const CACHE_NAME = 'iron-tracker-v1';
+
+const CACHE_NAME = 'iron-tracker-v2';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',

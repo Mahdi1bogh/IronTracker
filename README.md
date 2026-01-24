@@ -1,23 +1,27 @@
-# IronTracker V10
 
-IronTracker V10 est une application de suivi d'entraînement (Progressive Web App) conçue pour la performance et l'autonomie. Elle fonctionne entièrement côté client (Client-Side Only), garantissant la rapidité et la confidentialité des données via le stockage local.
+# IronTracker
+
+IronTracker est une application de suivi d'entraînement (Progressive Web App) conçue pour la performance et l'autonomie. Elle fonctionne entièrement côté client (Client-Side Only), garantissant la rapidité et la confidentialité des données via le stockage local.
 
 ## Architecture & Fonctionnalités
 
 ### Core
 *   **Architecture SPA/PWA :** Application web réactive conçue pour être installée sur mobile (iOS/Android) via la fonction "Ajouter à l'écran d'accueil".
 *   **Local-First :** Persistance des données via `localStorage`. Aucune base de données distante ni création de compte requise.
-*   **Gestion des Données :** Système complet d'export et d'import au format JSON pour la sauvegarde ou le transfert entre appareils.
+*   **Gestion des Données :** Système complet d'export et d'import au format JSON. Export analytique au format CSV (Flat File) pour traitement dans Excel/Sheets.
 
 ### Suivi d'Entraînement
-*   Interface optimisée pour l'utilisation tactile en salle.
-*   Gestion avancée des métriques : Poids, Répétitions, RIR (Reps In Reserve).
+*   Interface tactile optimisée.
+*   **Musculation :** Gestion avancée des métriques : Poids, Répétitions, RIR (Reps In Reserve).
+*   **Cardio :** Mode adapté avec Niveau, Distance et Durée (MM:SS).
+*   **Forme Physique :** Notation de l'état de forme (1-5) pour pondérer les performances.
 *   Chronomètre de repos automatique et calculs de charge en temps réel.
 
 ### Analytics & Progression
-*   **Estimation 1RM (e1RM) :** Calcul dynamique basé sur la formule de Brzycki.
-*   **Volume d'entraînement :** Analyse du volume hebdomadaire par groupe musculaire (filtrage des séries effectives).
-*   **Historique :** Visualisation graphique de la progression linéaire et des records personnels (PR).
+*   **SBD Tracker :** Suivi graphique des ratios de force (Squat/Bench/Deadlift) par rapport au poids de corps.
+*   **Estimation 1RM (e1RM) :** Calcul dynamique basé sur la formule de Wathen.
+*   **Volume d'entraînement :** Analyse du volume hebdomadaire par groupe musculaire (filtrage des séries effectives RIR ≤ 4).
+*   **Historique :** Visualisation graphique de la progression linéaire.
 
 ### Personnalisation
 *   Éditeur de programmes complet (Split, Full Body, etc.).

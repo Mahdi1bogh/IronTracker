@@ -5,6 +5,7 @@ export interface SetRecord {
   rir?: string;
   done: boolean;
   notes?: string;
+  completedAt?: number;
 }
 
 export interface ExerciseInstance {
@@ -27,9 +28,12 @@ export interface WorkoutSession {
   exercises: ExerciseInstance[];
 }
 
+export type ExerciseType = 'Isolation' | 'Polyarticulaire' | 'Cardio';
+
 export interface LibraryExercise {
   id: string;
   name: string;
+  type: ExerciseType;
   muscle: string;
   equipment: string;
   tips?: {
