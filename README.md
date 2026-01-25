@@ -134,7 +134,7 @@ Visible sur le calendrier (pastille en haut à gauche du jour) :
 *   🟠 **Orange (2/5) :** Fatigué / Courbaturé.
 *   🟡 **Or (3/5) :** Normal / Moyen.
 *   🟢 **Vert Clair (4/5) :** En forme.
-*   🌳 **Vert Foncé (5/5) :** Olympique / Prime.
+*   🟢 **Vert Foncé (5/5) :** Olympique / Prime.
 
 ---
 
