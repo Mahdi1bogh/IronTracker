@@ -1,90 +1,119 @@
 
-# IronTracker
+# IronTracker V10 - Guide Utilisateur & Documentation
 
-IronTracker est une application de suivi d'entraînement (Progressive Web App) conçue pour la performance et l'autonomie. Elle fonctionne entièrement côté client (Client-Side Only), garantissant la rapidité et la confidentialité des données via le stockage local.
+Bienvenue sur **IronTracker**, votre carnet d'entraînement numérique conçu pour la performance, l'autonomie et la progression.
 
-## Architecture & Fonctionnalités
-
-### Core
-*   **Architecture SPA/PWA :** Application web réactive conçue pour être installée sur mobile (iOS/Android) via la fonction "Ajouter à l'écran d'accueil".
-*   **Local-First :** Persistance des données via `localStorage`. Aucune base de données distante ni création de compte requise.
-*   **Gestion des Données :** Système complet d'export et d'import au format JSON. Export analytique au format CSV (Flat File) pour traitement dans Excel/Sheets.
-
-### Suivi d'Entraînement
-*   Interface tactile optimisée.
-*   **Musculation :** Gestion avancée des métriques : Poids, Répétitions, RIR (Reps In Reserve).
-*   **Cardio :** Mode adapté avec Niveau, Distance et Durée (MM:SS).
-*   **Forme Physique :** Notation de l'état de forme (1-5) pour pondérer les performances.
-*   Chronomètre de repos automatique et calculs de charge en temps réel.
-
-### Analytics & Progression
-*   **SBD Tracker :** Suivi graphique des ratios de force (Squat/Bench/Deadlift) par rapport au poids de corps.
-*   **Estimation 1RM (e1RM) :** Calcul dynamique basé sur la formule de Wathen.
-*   **Volume d'entraînement :** Analyse du volume hebdomadaire par groupe musculaire (filtrage des séries effectives RIR ≤ 4).
-*   **Historique :** Visualisation graphique de la progression linéaire.
-
-### Personnalisation
-*   Éditeur de programmes complet (Split, Full Body, etc.).
-*   Bibliothèque d'exercices extensible avec métadonnées techniques (Setup, Exécution).
-*   Système de thèmes visuels dynamiques.
+Contrairement aux applications classiques, IronTracker fonctionne **100% en local** sur votre téléphone. Vos données vous appartiennent, aucune création de compte n'est nécessaire, et l'application est ultra-rapide.
 
 ---
 
-## Stack Technique
+## 📱 Installation (PWA)
 
-*   **Runtime :** React 18
+IronTracker est une **Progressive Web App (PWA)**. Pour une expérience optimale :
+
+1.  Ouvrez l'application dans votre navigateur (Chrome sur Android, Safari sur iOS).
+2.  Appuyez sur le bouton de partage ou le menu options.
+3.  Sélectionnez **"Sur l'écran d'accueil"** ou **"Installer l'application"**.
+4.  L'app se comportera comme une application native (plein écran, sans barre d'adresse).
+
+---
+
+## 📖 Guide de Démarrage
+
+### 1. 🏠 Dashboard (Accueil)
+C'est votre tableau de bord.
+*   **Calendrier Visuel :** Chaque jour d'entraînement est marqué. Plus la couleur est intense, plus le volume d'entraînement était élevé.
+*   **Points de couleur :** Sous chaque date, des petits points indiquent les types d'exercices travaillés (ex: Rouge pour Polyarticulaire, Vert pour Cardio).
+*   **Accès Rapide :** Boutons vers vos Records personnels et vos Graphiques de progression.
+
+### 2. 📋 Programmes (Planification)
+C'est ici que vous construisez votre routine.
+*   L'app vient avec des programmes par défaut (Full Body, PPL, PHUL).
+*   **Créer/Modifier :** Vous pouvez créer vos propres programmes et séances.
+*   **Lancer une séance :** Appuyez sur une séance pour voir le résumé, puis cliquez sur "DÉMARRER".
+
+### 3. 🏋️‍♂️ En Séance (Workout)
+Le cœur de l'application. Voici les particularités à connaître :
+
+#### 🔹 La Notation Intelligente (Smart Input)
+Pour gagner du temps, l'application comprend vos raccourcis pour le temps (Cardio/Gainage) :
+*   Tapez `1.30` ou `1,30` ➔ L'app convertit en **01:30** (1 min 30s).
+*   Tapez `90` (pour du gainage) ➔ L'app convertit en **01:30**.
+*   Tapez `10` (pour du cardio) ➔ L'app convertit en **10:00** (10 min).
+
+#### 🔹 Concepts Clés
+*   **RIR (Reps In Reserve) :** C'est l'intensité. "Combien de répétitions j'aurais encore pu faire avant l'échec ?"
+    *   `0` = Échec musculaire (impossible d'en faire une de plus).
+    *   `1` = J'en avais encore 1 sous le pied.
+    *   `2-3` = Effort soutenu mais contrôlé.
+*   **Fatigue (1-5) :** Notez votre état de forme en début de séance.
+    *   `1` = Épuisé / Malade.
+    *   `5` = Olympique / En pleine forme.
+
+#### 🔹 Le Chronomètre
+*   Validez une série (Bouton "VAL") ➔ Le chronomètre de repos se lance automatiquement selon le temps défini pour l'exercice.
+*   Un bandeau apparaît en bas de l'écran. Vous pouvez ajouter/retirer 30s si besoin.
+
+### 4. 📚 Bibliothèque
+La liste de tous les exercices disponibles.
+*   **Filtre :** Cherchez par nom, muscle ou type.
+*   **Favoris :** Cliquez sur l'étoile pour retrouver vos exercices préférés en haut de liste.
+*   **Création :** Ajoutez vos propres exercices personnalisés avec vos notes techniques.
+
+### 5. 📈 Progrès & Analytics
+Suivez votre évolution avec précision.
+
+*   **SBD Ratio (Squat / Bench / Deadlift) :**
+    *   Calcule votre force théorique sur les 3 mouvements rois par rapport à votre poids de corps.
+    *   *Niveaux :* Fondation ➔ Intermédiaire ➔ Avancé ➔ Elite ➔ Pro.
+*   **Estimation 1RM (e1RM) :**
+    *   L'app utilise la **Formule de Wathen** pour estimer votre charge maximale théorique sur 1 répétition, basée sur vos séries longues (ex: 10 reps à 80kg).
+*   **Volume Hebdo :**
+    *   Affiche le nombre de séries **effectives** (RIR ≤ 4) par groupe musculaire pour s'assurer que vous en faites assez (ou pas trop).
+
+### 6. ⚙️ Paramètres & Sauvegarde (Important !)
+Comme l'application est hors-ligne, **vos données sont sur votre téléphone**.
+*   **Export JSON :** Faites des sauvegardes régulières (fichier `.json`) via ce menu. Si vous changez de téléphone, il suffit de réimporter ce fichier.
+*   **Export CSV :** Pour les fans d'Excel, exportez tout votre historique en format tableur pour faire vos propres analyses.
+
+---
+
+## 🎨 Légendes & Codes Couleurs
+
+### Types d'exercices
+| Type | Couleur | Description |
+| :--- | :--- | :--- |
+| **Polyarticulaire** | 🔴 Rouge | Mouvements de base (Squat, Bench, etc.) impliquant plusieurs articulations. |
+| **Isolation** | 🔵 Bleu | Cible un muscle précis (Curl, Leg Extension). |
+| **Cardio** | 🟢 Vert | Endurance (Vélo, Tapis, Rameur). |
+| **Isométrique** | 🟣 Violet | Effort statique sans mouvement (Gainage, Chaise). |
+| **Étirement** | ⚪ Gris | Mobilité et souplesse. |
+
+### Groupes Musculaires
+L'application suit les groupes principaux :
+*   Pectoraux, Dos, Épaules
+*   Jambes (Quadriceps/Ischios), Mollets
+*   Bras (Biceps/Triceps), Avant-bras
+*   Abdos, Cou, Cardio
+
+---
+
+## 🛠 Stack Technique (Pour les développeurs)
+
+*   **Framework :** React 18
 *   **Langage :** TypeScript
-*   **Build System :** Vite
-*   **Styling :** Tailwind CSS
-*   **Visualisation :** Recharts
+*   **Build Tool :** Vite
+*   **CSS :** Tailwind CSS
+*   **Charts :** Recharts
+*   **Architecture :** Local-First (LocalStorage), PWA, Single Page Application (SPA).
 
----
-
-## Installation & Développement
-
-### Prérequis
-*   Node.js (v18+)
-*   npm
-
-### Installation des dépendances
+### Commandes
 ```bash
-npm install
-```
-
-### Serveur de développement
-Lance l'application en mode local avec rechargement à chaud (HMR).
-```bash
-npm run dev
-```
-
-### Compilation (Production)
-Génère les fichiers statiques optimisés dans le dossier `dist`.
-```bash
-npm run build
+npm install  # Installation
+npm run dev  # Serveur local
+npm run build # Production
 ```
 
 ---
 
-## Déploiement
-
-L'application étant statique, elle peut être hébergée sur n'importe quel serveur web ou CDN.
-
-**Procédure recommandée (Netlify/Vercel) :**
-1.  Exécuter la commande `npm run build`.
-2.  Déployer le contenu du dossier `dist`.
-
-## Configuration Mobile (PWA)
-
-Pour bénéficier de l'expérience plein écran sans barre d'adresse :
-
-**iOS (Safari) :**
-Bouton Partager > Sur l'écran d'accueil.
-
-**Android (Chrome) :**
-Menu > Installer l'application / Ajouter à l'écran d'accueil.
-
----
-
-## Licence
-
-Projet personnel open-source.
+*IronTracker V10 - Conçu pour ceux qui poussent.*
