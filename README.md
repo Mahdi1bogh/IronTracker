@@ -128,6 +128,14 @@ Vos données sont stockées localement dans le navigateur de votre téléphone.
 *   🟣 **Violet :** Isométrique (Statique, gainage).
 *   ⚪ **Gris :** Étirement / Mobilité.
 
+### Niveau de Forme (Fatigue)
+Visible sur le calendrier (pastille en haut à gauche du jour) :
+*   🔴 **Rouge (1/5) :** Épuisé / Malade.
+*   🟠 **Orange (2/5) :** Fatigué / Courbaturé.
+*   🟡 **Or (3/5) :** Normal / Moyen.
+*   🟢 **Vert Clair (4/5) :** En forme.
+*   🌳 **Vert Foncé (5/5) :** Olympique / Prime.
+
 ---
 
 ## 🛠 Stack Technique (Pour les développeurs)
