@@ -858,7 +858,8 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                )}}
+                );
+                })}
                 <button onClick={() => {
                   const newExos = [...session.exercises];
                   const last = newExos[eIdx].sets[newExos[eIdx].sets.length-1];
