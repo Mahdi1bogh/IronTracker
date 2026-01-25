@@ -15,6 +15,7 @@ export interface ExerciseInstance {
   isBonus: boolean;
   notes: string;
   sets: SetRecord[];
+  targetRir?: string; // New field for static target goal
 }
 
 export interface WorkoutSession {
@@ -28,7 +29,7 @@ export interface WorkoutSession {
   exercises: ExerciseInstance[];
 }
 
-export type ExerciseType = 'Isolation' | 'Polyarticulaire' | 'Cardio';
+export type ExerciseType = 'Isolation' | 'Polyarticulaire' | 'Cardio' | 'Isométrique' | 'Étirement';
 
 export interface LibraryExercise {
   id: string;
@@ -36,6 +37,7 @@ export interface LibraryExercise {
   type: ExerciseType;
   muscle: string;
   equipment: string;
+  isFavorite?: boolean;
   tips?: {
     setup?: string[];
     exec?: string[];
@@ -73,7 +75,7 @@ export enum View {
   Library = 'library'
 }
 
-export type AccentColor = 'blue' | 'emerald' | 'gold' | 'purple' | 'red';
+export type AccentColor = 'blue' | 'emerald' | 'gold' | 'purple' | 'red' | 'cyan' | 'gray';
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;

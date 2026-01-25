@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, WorkoutSession, Program, LibraryExercise, ExerciseInstance, SetRecord, AccentColor, BeforeInstallPromptEvent, ExerciseType, ProgramSession } from './types';
-import { STORAGE_KEYS, Icons, THEMES } from './constants';
-import { getExerciseStats, calculate1RM, downloadFile, formatDuration, parseDuration, generateCSV } from './utils';
-import { DEFAULT_LIBRARY } from './data/library';
+import { STORAGE_KEYS, Icons, THEMES, TYPE_COLORS, FATIGUE_COLORS } from './constants';
+import { EXERCISE_TYPES, EXERCISE_TYPE_LIST } from './data/exerciseTypes';
+import { getExerciseStats, calculate1RM, downloadFile, formatDuration, parseDuration, generateCSV, smartFormatTime } from './utils';
+import { DEFAULT_LIBRARY } from './data/exerciseLibrary';
 import { DEFAULT_PROGRAMS } from './data/programs';
 import { EQUIPMENTS } from './data/equipments';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Legend, ReferenceLine, LineChart, Line, Cell, PieChart, Pie, ComposedChart, LabelList, ReferenceArea } from 'recharts';
@@ -161,6 +162,9 @@ export default function App() {
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d'|'30d'|'90d'|'1y'|'all'>('30d');
   const [analyticsMetric, setAnalyticsMetric] = useState<'max'|'volume'|'tonnage'>('max');
   
+  // Volume Chart Mode
+  const [volumeChartMode, setVolumeChartMode] = useState<'muscle' | 'type'>('muscle');
+
   // SBD Analytics State
   const [sbdViewMode, setSbdViewMode] = useState<'tracking' | 'ratio'>('ratio');
   const [sbdRatioCategory, setSbdRatioCategory] = useState<'global'|'squat'|'bench'|'deadlift'>('global');
@@ -224,6 +228,7 @@ export default function App() {
     
   const volumeData = useMemo(() => {
         const counts: Record<string, number> = {};
+        
         history.forEach(s => {
             const d = new Date(s.startTime);
             const dTime = d.setHours(0,0,0,0);
@@ -232,19 +237,34 @@ export default function App() {
             
             if (dTime >= wStartTime && dTime <= wEndTime) {
                 s.exercises.forEach(e => {
-                    const muscle = library.find(l => l.id === e.id)?.muscle || 'Autre';
-                    const hardSets = e.sets.filter(st => {
-                        if (!st.done) return false;
-                        const rir = parseInt(st.rir || '10');
-                        return rir <= 4;
-                    }).length; 
-                    counts[muscle] = (counts[muscle] || 0) + hardSets;
+                    const lib = library.find(l => l.id === e.id);
+                    if (!lib) return;
+
+                    if (volumeChartMode === 'muscle') {
+                        // Effective sets for Muscle Mode (RIR <= 4)
+                        const hardSets = e.sets.filter(st => {
+                            if (!st.done) return false;
+                            const rir = parseInt(st.rir || '10');
+                            return rir <= 4;
+                        }).length; 
+                        const muscle = lib.muscle || 'Autre';
+                        counts[muscle] = (counts[muscle] || 0) + hardSets;
+                    } else {
+                        // Total sets for Type Mode (All Done sets)
+                        const doneSets = e.sets.filter(st => st.done).length;
+                        const type = lib.type;
+                        counts[type] = (counts[type] || 0) + doneSets;
+                    }
                 });
             }
         });
         
-        return MUSCLE_ORDER.map(m => ({ name: m, sets: counts[m] || 0 }));
-  }, [history, weekStart, weekEnd, library]);
+        if (volumeChartMode === 'muscle') {
+            return MUSCLE_ORDER.map(m => ({ name: m, sets: counts[m] || 0, color: MUSCLE_COLORS[m] }));
+        } else {
+            return EXERCISE_TYPE_LIST.map(t => ({ name: t, sets: counts[t] || 0, color: TYPE_COLORS[t] }));
+        }
+  }, [history, weekStart, weekEnd, library, volumeChartMode]);
 
   const sbdData = useMemo(() => {
         const sortedHistory = history.slice().sort((a,b) => a.startTime - b.startTime);
@@ -426,6 +446,11 @@ export default function App() {
     });
   };
 
+  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setLibrary(prev => prev.map(l => l.id === id ? { ...l, isFavorite: !l.isFavorite } : l));
+  };
+
   const startSession = (progName: string, sess: ProgramSession) => {
       setSession({
         id: Date.now(),
@@ -438,6 +463,7 @@ export default function App() {
             id: e.id,
             target: `${e.sets} x ${e.reps}`,
             rest: e.rest,
+            targetRir: e.targetRir, // FIX: Store the planned target RIR separately
             isBonus: false,
             notes: "",
             sets: Array(e.sets).fill(null).map(() => ({ weight: "", reps: "", done: false, rir: e.targetRir || "" }))
@@ -475,10 +501,34 @@ export default function App() {
               const count = daySessions.length;
               const intensity = count > 0 ? Math.min(100, daySessions.reduce((acc, s) => acc + s.exercises.length, 0) * 10) : 0;
               
+              // Get types in session for dots (ONLY if sets are DONE)
+              const typesInDay = new Set<ExerciseType>();
+              daySessions.forEach(s => s.exercises.forEach(e => {
+                  const hasDoneSets = e.sets.some(st => st.done);
+                  if (hasDoneSets) {
+                      const lib = library.find(l => l.id === e.id);
+                      if (lib) typesInDay.add(lib.type);
+                  }
+              }));
+              const typeDots = Array.from(typesInDay);
+
+              // Fatigue Indicator (Last session of day)
+              const lastSession = daySessions[daySessions.length - 1];
+              const fatigueScore = lastSession ? lastSession.fatigue : null;
+
               return (
                 <button key={i} onClick={() => count > 0 && setSelectedDaySessions(daySessions)} className={`relative aspect-square flex flex-col items-center justify-center rounded-xl text-xs font-mono transition-all ${count > 0 ? 'border border-primary/20 shadow-lg' : 'text-secondary/30'}`} style={count > 0 ? { backgroundColor: `rgba(88, 166, 255, ${intensity/100 * 0.4 + 0.1})`, borderColor: 'var(--primary)' } : {}}>
+                  {fatigueScore && (
+                      <div className="absolute top-1.5 left-1.5 w-1 h-3 rounded-full" style={{ backgroundColor: FATIGUE_COLORS[fatigueScore] }} />
+                  )}
                   <span className={count > 0 ? 'text-white font-bold' : ''}>{day}</span>
-                  {count > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1 shadow-[0_0_5px_var(--primary)]" />}
+                  {count > 0 && (
+                      <div className="flex gap-1 mt-1">
+                          {typeDots.map(t => (
+                              <div key={t} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: TYPE_COLORS[t] }} />
+                          ))}
+                      </div>
+                  )}
                 </button>
               );
             })}
@@ -505,6 +555,10 @@ export default function App() {
 
   const renderWorkout = () => {
       if (!session) return null;
+      
+      // Strict Session Validation Logic
+      const allSetsDone = session.exercises.every(ex => ex.sets.every(s => s.done));
+      
       return (
       <div className="space-y-6 pb-40 animate-in fade-in duration-500">
         <div className="flex justify-between items-center px-1">
@@ -525,21 +579,30 @@ export default function App() {
             <h2 className="text-xl font-black italic uppercase leading-tight">{session.sessionName}</h2>
             <div className="text-secondary text-[10px] font-black uppercase tracking-widest">{session.programName}</div>
           </div>
-          <button onClick={() => setPendingConfirm({
+          <button 
+            disabled={!allSetsDone}
+            onClick={() => setPendingConfirm({
             message: "Terminer la séance ?",
             onConfirm: () => {
               setRestTarget(null);
               setRestTime(null);
               setShowGo(false);
               // Convert any Cardio "MM:SS" RIRs to seconds before saving history
+              // Convert any Static "MM:SS" Reps to seconds before saving history
               const finishedSession = { ...session };
               finishedSession.exercises.forEach(ex => {
                   const libDef = library.find(l => l.id === ex.id);
                   if (libDef?.type === 'Cardio') {
                       ex.sets.forEach(s => {
-                          if (s.rir && s.rir.includes(':')) {
+                          if (s.rir) {
                               s.rir = String(parseDuration(s.rir));
                           }
+                      });
+                  }
+                  if (libDef?.type === 'Isométrique' || libDef?.type === 'Étirement') {
+                      ex.sets.forEach(s => {
+                          // Normalizing to seconds regardless of whether it was "45" or "00:45"
+                          s.reps = String(parseDuration(s.reps));
                       });
                   }
               });
@@ -550,13 +613,13 @@ export default function App() {
               localStorage.removeItem(STORAGE_KEYS.SESS);
               setView(View.Dashboard);
             }
-          })} className="px-6 py-3 bg-success text-white text-xs font-black rounded-full uppercase shadow-lg shadow-success/20">Finir</button>
+          })} className={`px-6 py-3 text-xs font-black rounded-full uppercase shadow-lg transition-all ${allSetsDone ? 'bg-success text-white shadow-success/20' : 'bg-surface2 text-secondary/30 cursor-not-allowed border border-border/50'}`}>Finir</button>
         </div>
 
         <div className="bg-surface border border-border px-6 py-4 rounded-[2rem] flex items-center justify-between gap-4">
              <div className="flex-1 space-y-1">
                  <label className="text-[8px] font-black uppercase text-secondary">Poids de Corps (kg)</label>
-                 <input type="number" value={session.bodyWeight} onChange={e => {setSession({...session, bodyWeight: e.target.value}); localStorage.setItem(STORAGE_KEYS.SESS, JSON.stringify({...session, bodyWeight: e.target.value}))}} className="w-full bg-background border border-border p-2 rounded-lg text-sm font-mono font-bold text-center focus:border-primary outline-none" placeholder="Ex: 80" />
+                 <input type="text" inputMode="decimal" value={session.bodyWeight} onChange={e => {setSession({...session, bodyWeight: e.target.value}); localStorage.setItem(STORAGE_KEYS.SESS, JSON.stringify({...session, bodyWeight: e.target.value}))}} className="w-full bg-background border border-border p-2 rounded-lg text-sm font-mono font-bold text-center focus:border-primary outline-none" placeholder="Ex: 80" />
              </div>
              <div className="flex-1 space-y-1">
                  <div className="flex justify-between items-center">
@@ -568,12 +631,13 @@ export default function App() {
         </div>
 
         {session.exercises.map((exo, eIdx) => {
-          const stats = getExerciseStats(exo.id, history);
           const libEx = library.find(l => l.id === exo.id);
+          const stats = getExerciseStats(exo.id, history, libEx?.type);
           const isCardio = libEx?.type === 'Cardio';
+          const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
 
           const bestSet = [...exo.sets].filter(s => s.done).sort((a,b) => calculate1RM(b.weight, b.reps) - calculate1RM(a.weight, a.reps))[0];
-          const currentE1RM = bestSet ? calculate1RM(bestSet.weight, bestSet.reps) : 0;
+          const currentE1RM = (bestSet && !isCardio && !isStatic) ? calculate1RM(bestSet.weight, bestSet.reps) : 0;
           
           const delta = currentE1RM - stats.lastE1RM;
           const isPos = delta > 0;
@@ -609,14 +673,24 @@ export default function App() {
                     </div>
                     
                     <div className="text-[9px] font-black uppercase text-secondary mb-2">
-                        Objectif : {exo.target} | {isCardio ? "Durée" : "RIR"} {exo.sets[0]?.rir || '-'} | REST {exo.rest}s
+                        {/* FIX: Use targetRir instead of sets[0].rir for the goal display */}
+                        Objectif : {exo.target} | {isCardio ? "Durée" : "RIR"} {exo.targetRir || '-'} | REST {exo.rest}s
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{libEx?.muscle || 'Muscle'}</span>
-                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-surface2 text-secondary">{libEx?.type}</span>
+                      <span 
+                         className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border"
+                         style={{ 
+                             backgroundColor: `${TYPE_COLORS[libEx?.type || 'Isolation']}20`, // 20% opacity 
+                             borderColor: `${TYPE_COLORS[libEx?.type || 'Isolation']}40`,
+                             color: TYPE_COLORS[libEx?.type || 'Isolation']
+                         }}
+                      >
+                         {libEx?.type}
+                      </span>
                       <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-surface2 text-secondary">{EQUIPMENTS[libEx?.equipment || 'OT']}</span>
-                      {!isCardio && (
+                      {!isCardio && !isStatic && (
                           <>
                             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gold/10 border border-gold/30 rounded-full">
                                 <span className="text-[8px] font-black text-gold uppercase">Record Max:</span>
@@ -665,7 +739,7 @@ export default function App() {
                       <div className="text-[8px] font-black uppercase text-secondary mb-1">Dernière Séance</div>
                       <div className="text-[9px] font-mono text-secondary italic break-words">{stats.lastDetailed}</div>
                    </div>
-                   {!isCardio && (
+                   {!isCardio && !isStatic && (
                        <div className="bg-background/40 p-3 rounded-2xl border border-border/40 text-center flex flex-col justify-center">
                           <div className="text-[8px] font-black uppercase text-secondary mb-1">e1RM Session</div>
                           <div className="text-xs font-mono font-bold flex items-center justify-center gap-2">
@@ -696,30 +770,64 @@ export default function App() {
               )}
 
               <div className="p-6 space-y-4">
-                {exo.sets.map((set, sIdx) => (
+                {exo.sets.map((set, sIdx) => {
+                  // Strict Validation Logic: Button disabled if fields are empty
+                  const isSetValid = set.weight !== "" && set.reps !== ""; // For Cardio/Iso, reps might be duration, but field is same
+
+                  return (
                   <div key={sIdx} className={`p-4 rounded-2xl border transition-all ${set.done ? 'bg-success/5 border-success/30' : 'bg-surface2/40 border-transparent'}`}>
                     <div className="grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-1 text-[10px] font-mono font-bold text-secondary">{sIdx+1}</div>
                       <div className="col-span-3">
-                        <label className="text-[8px] uppercase text-secondary block text-center mb-1">{isCardio ? "Niveau" : "Poids"}</label>
-                        <input type="number" value={set.weight} onChange={e => updateSet(eIdx, sIdx, 'weight', e.target.value)} className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-sm font-mono focus:border-primary outline-none" placeholder={isCardio ? "Lvl" : "kg"} />
+                        <label className="text-[8px] uppercase text-secondary block text-center mb-1">{isCardio ? "Niveau" : isStatic ? "Lest" : "Poids"}</label>
+                        <input 
+                           type="text" 
+                           inputMode="decimal" 
+                           value={set.weight} 
+                           onChange={e => updateSet(eIdx, sIdx, 'weight', e.target.value)} 
+                           className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-sm font-mono focus:border-primary outline-none" 
+                           placeholder={isCardio ? "Lvl" : "kg"} 
+                        />
                       </div>
                       <div className="col-span-3">
-                        <label className="text-[8px] uppercase text-secondary block text-center mb-1">{isCardio ? "Dist." : "Reps"}</label>
-                        <input type="number" value={set.reps} onChange={e => updateSet(eIdx, sIdx, 'reps', e.target.value)} className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-sm font-mono focus:border-primary outline-none" placeholder={isCardio ? "m" : "reps"} />
+                        <label className="text-[8px] uppercase text-secondary block text-center mb-1">{isCardio ? "Dist." : isStatic ? "Durée" : "Reps"}</label>
+                        <input 
+                           type="text" 
+                           inputMode="decimal"
+                           value={set.reps} 
+                           onChange={e => updateSet(eIdx, sIdx, 'reps', e.target.value)}
+                           onBlur={e => {
+                              if (isStatic) {
+                                  // For static holds, treat this input as time duration
+                                  updateSet(eIdx, sIdx, 'reps', smartFormatTime(e.target.value, 'Isométrique'));
+                              }
+                           }}
+                           className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-sm font-mono focus:border-primary outline-none" 
+                           placeholder={isCardio ? "m" : isStatic ? "s" : "reps"} 
+                        />
                       </div>
                       <div className="col-span-2">
                         <label className="text-[8px] uppercase text-secondary block text-center mb-1">{isCardio ? "Durée" : "RIR"}</label>
                         <input 
                             type="text" 
+                            inputMode="decimal"
                             value={set.rir} 
                             onChange={e => updateSet(eIdx, sIdx, 'rir', e.target.value)} 
+                            onBlur={e => {
+                                if (isCardio) {
+                                    updateSet(eIdx, sIdx, 'rir', smartFormatTime(e.target.value, 'Cardio'));
+                                }
+                            }}
                             className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-[10px] font-mono focus:border-primary outline-none" 
                             placeholder={isCardio ? "MM:SS" : "RIR"} 
                         />
                       </div>
                       <div className="col-span-3 flex gap-1 pt-4">
-                        <button onClick={() => updateSet(eIdx, sIdx, 'done', !set.done)} className={`flex-1 py-2.5 rounded-xl font-black text-[10px] transition-all flex flex-col items-center justify-center leading-none ${set.done ? 'bg-success text-white' : 'bg-surface2 text-secondary border border-border'}`}>
+                        <button 
+                           disabled={!isSetValid}
+                           onClick={() => updateSet(eIdx, sIdx, 'done', !set.done)} 
+                           className={`flex-1 py-2.5 rounded-xl font-black text-[10px] transition-all flex flex-col items-center justify-center leading-none ${!isSetValid ? 'bg-surface2 text-secondary/20 border border-transparent cursor-not-allowed' : set.done ? 'bg-success text-white' : 'bg-surface2 text-secondary border border-border'}`}
+                        >
                              {set.done ? (
                                 <>
                                   <span>OK</span>
@@ -750,7 +858,7 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                ))}
+                )}}
                 <button onClick={() => {
                   const newExos = [...session.exercises];
                   const last = newExos[eIdx].sets[newExos[eIdx].sets.length-1];
@@ -830,6 +938,7 @@ export default function App() {
                {sess.exos.map((ex, exIdx) => {
                  const libEx = library.find(l => l.id === ex.id);
                  const isCardio = libEx?.type === 'Cardio';
+                 const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
                  
                  return (
                    <div key={exIdx} className="bg-surface2/30 p-4 rounded-xl flex justify-between items-center gap-2">
@@ -838,35 +947,56 @@ export default function App() {
                         <div className="flex gap-2 mt-1">
                            <div className="flex flex-col">
                              <label className="text-[8px] uppercase text-secondary">Séries</label>
-                             <input type="number" value={ex.sets} onChange={e => {
-                                const newSess = [...editingProgram.sessions];
-                                newSess[sIdx].exos[exIdx].sets = parseInt(e.target.value);
-                                setEditingProgram({...editingProgram, sessions: newSess});
-                             }} className="bg-background w-12 text-center rounded text-xs p-1" />
+                             <input 
+                                type="number" 
+                                value={ex.sets} 
+                                onChange={e => {
+                                  const newSess = [...editingProgram.sessions];
+                                  newSess[sIdx].exos[exIdx].sets = parseInt(e.target.value);
+                                  setEditingProgram({...editingProgram, sessions: newSess});
+                                }} 
+                                className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" 
+                             />
                            </div>
                            <div className="flex flex-col">
-                             <label className="text-[8px] uppercase text-secondary">{isCardio ? "Dist." : "Reps"}</label>
-                             <input type="text" value={ex.reps} onChange={e => {
-                                const newSess = [...editingProgram.sessions];
-                                newSess[sIdx].exos[exIdx].reps = e.target.value;
-                                setEditingProgram({...editingProgram, sessions: newSess});
-                             }} className="bg-background w-16 text-center rounded text-xs p-1" />
+                             <label className="text-[8px] uppercase text-secondary">{isCardio ? "Dist." : isStatic ? "Durée" : "Reps"}</label>
+                             <input 
+                                type="text" 
+                                value={ex.reps} 
+                                onChange={e => {
+                                  const newSess = [...editingProgram.sessions];
+                                  newSess[sIdx].exos[exIdx].reps = e.target.value;
+                                  setEditingProgram({...editingProgram, sessions: newSess});
+                                }} 
+                                className="bg-surface2/50 w-20 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" 
+                             />
                            </div>
                            <div className="flex flex-col">
                              <label className="text-[8px] uppercase text-secondary">{isCardio ? "Durée" : "RIR"}</label>
-                             <input type="text" value={ex.targetRir || ''} onChange={e => {
-                                const newSess = [...editingProgram.sessions];
-                                newSess[sIdx].exos[exIdx].targetRir = e.target.value;
-                                setEditingProgram({...editingProgram, sessions: newSess});
-                             }} className="bg-background w-12 text-center rounded text-xs p-1" placeholder={isCardio ? "MM:SS" : "1-2"} />
+                             <input 
+                                type="text" 
+                                value={ex.targetRir || ''} 
+                                onChange={e => {
+                                  const newSess = [...editingProgram.sessions];
+                                  newSess[sIdx].exos[exIdx].targetRir = e.target.value;
+                                  setEditingProgram({...editingProgram, sessions: newSess});
+                                }} 
+                                className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" 
+                                placeholder={isCardio ? "MM:SS" : "1-2"} 
+                             />
                            </div>
                            <div className="flex flex-col">
                              <label className="text-[8px] uppercase text-secondary">Repos</label>
-                             <input type="number" value={ex.rest} onChange={e => {
-                                const newSess = [...editingProgram.sessions];
-                                newSess[sIdx].exos[exIdx].rest = parseInt(e.target.value);
-                                setEditingProgram({...editingProgram, sessions: newSess});
-                             }} className="bg-background w-12 text-center rounded text-xs p-1" />
+                             <input 
+                                type="number" 
+                                value={ex.rest} 
+                                onChange={e => {
+                                  const newSess = [...editingProgram.sessions];
+                                  newSess[sIdx].exos[exIdx].rest = parseInt(e.target.value);
+                                  setEditingProgram({...editingProgram, sessions: newSess});
+                                }} 
+                                className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" 
+                             />
                            </div>
                         </div>
                       </div>
@@ -911,46 +1041,53 @@ export default function App() {
 
   const renderPrograms = () => (
     <div className="space-y-6 pb-24 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center px-1">
-        <h2 className="text-2xl font-black italic uppercase">Programmes</h2>
-        <button onClick={() => {
-           setEditingProgram({ id: Date.now().toString(), name: "Nouveau Programme", sessions: [] });
-           setView(View.EditorProgram);
-        }} className="px-4 py-2 bg-primary text-background rounded-full text-xs font-black uppercase">+ Créer</button>
-      </div>
-      
-      {programs.map(prog => (
-        <div key={prog.id} className="bg-surface border border-border rounded-[2.5rem] p-6 shadow-lg">
-           <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-black italic uppercase">{prog.name}</h3>
-              <div className="flex gap-2">
-                <button onClick={() => {
-                  // DEEP COPY to allow cancel without mutations
-                  setEditingProgram(JSON.parse(JSON.stringify(prog)));
-                  setView(View.EditorProgram);
-                }} className="p-2 bg-surface2 rounded-full text-secondary"><Icons.Settings /></button>
-                <button onClick={() => {
-                   setPendingConfirm({
-                     message: "Supprimer le programme ?",
-                     variant: 'danger',
-                     onConfirm: () => setPrograms(prev => prev.filter(p => p.id !== prog.id))
-                   });
-                }} className="p-2 bg-danger/10 text-danger rounded-full">✕</button>
-              </div>
-           </div>
-           
-           <div className="space-y-2">
-             {prog.sessions.map(sess => (
-               <div key={sess.id} className="bg-background/50 p-4 rounded-2xl flex justify-between items-center">
-                  <span className="font-bold text-sm text-secondary">{sess.name}</span>
-                  <button onClick={() => setPreviewSession({ programName: prog.name, session: sess })} className="px-4 py-2 bg-primary text-background text-[10px] font-black uppercase rounded-full shadow-lg shadow-primary/20 active:scale-95 transition-all">
-                    Aperçu
-                  </button>
-               </div>
-             ))}
-           </div>
-        </div>
-      ))}
+       <div className="flex justify-between items-center px-1">
+          <h2 className="text-2xl font-black italic uppercase">Programmes</h2>
+          <button onClick={() => {
+             setEditingProgram({ id: Date.now().toString(), name: "Nouveau Programme", sessions: [] });
+             setView(View.EditorProgram);
+          }} className="px-4 py-2 bg-primary text-background rounded-full text-xs font-black uppercase shadow-lg shadow-primary/20 hover:scale-105 transition-transform">+ Créer</button>
+       </div>
+
+       <div className="grid gap-6">
+          {programs.map(prog => (
+             <div key={prog.id} className="bg-surface border border-border rounded-[2.5rem] p-6 shadow-lg">
+                <div className="flex justify-between items-start mb-6">
+                   <h3 className="text-lg font-black italic uppercase leading-tight max-w-[70%]">{prog.name}</h3>
+                   <div className="flex gap-1">
+                      <button onClick={() => {
+                         // FIX: Deep copy to avoid mutating the original object before saving
+                         setEditingProgram(JSON.parse(JSON.stringify(prog)));
+                         setView(View.EditorProgram);
+                      }} className="p-2 text-secondary hover:text-white bg-surface2 rounded-xl transition-colors"><Icons.Settings /></button>
+                      <button onClick={() => setPendingConfirm({
+                          message: "Supprimer le programme ?",
+                          subMessage: "Cette action est irréversible.",
+                          variant: 'danger',
+                          onConfirm: () => setPrograms(prev => prev.filter(p => p.id !== prog.id))
+                      })} className="p-2 text-danger bg-danger/10 rounded-xl hover:bg-danger/20 transition-colors">✕</button>
+                   </div>
+                </div>
+                
+                <div className="space-y-3">
+                   {prog.sessions.map(sess => (
+                      <button key={sess.id} onClick={() => setPreviewSession({ programName: prog.name, session: sess })} className="w-full text-left bg-surface2/30 hover:bg-surface2 p-4 rounded-2xl border border-transparent hover:border-primary/30 transition-all group">
+                         <div className="flex justify-between items-center">
+                            <span className="font-bold text-sm">{sess.name}</span>
+                            <span className="text-[10px] font-black uppercase text-primary opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">Démarrer ➔</span>
+                         </div>
+                         <div className="text-[10px] text-secondary mt-1 flex gap-2">
+                            <span>{sess.exos.length} Mouvements</span>
+                            <span>•</span>
+                            <span>{sess.exos.reduce((acc, ex) => acc + ex.sets, 0)} Séries</span>
+                         </div>
+                      </button>
+                   ))}
+                   {prog.sessions.length === 0 && <div className="text-center text-[10px] text-secondary/50 italic py-2">Aucune séance configurée</div>}
+                </div>
+             </div>
+          ))}
+       </div>
     </div>
   );
 
@@ -962,7 +1099,13 @@ export default function App() {
                l.muscle.toLowerCase().includes(q) ||
                l.type.toLowerCase().includes(q) ||
                l.id.toLowerCase().includes(q);
-    }).sort((a,b) => a.name.localeCompare(b.name));
+    }).sort((a,b) => {
+        // FIX: Treat undefined and false as identical for sorting
+        const favA = !!a.isFavorite;
+        const favB = !!b.isFavorite;
+        if (favA === favB) return a.name.localeCompare(b.name);
+        return favA ? -1 : 1;
+    });
 
     return (
      <div className="space-y-6 pb-24 animate-in fade-in duration-500">
@@ -981,9 +1124,17 @@ export default function App() {
         <div className="grid gap-3">
            {filteredLib.map(l => (
              <div key={l.id} className="bg-surface border border-border p-4 rounded-2xl flex justify-between items-center">
-                <div>
-                   <div className="font-bold">{l.name}</div>
-                   <div className="text-[10px] text-secondary uppercase mt-1">{l.muscle} • {l.equipment}</div>
+                <div className="flex-1">
+                   <div className="flex items-center gap-2">
+                       <button onClick={(e) => toggleFavorite(l.id, e)} className={`transition-transform active:scale-125 ${l.isFavorite ? 'text-gold' : 'text-secondary/30'}`}>
+                           {l.isFavorite ? <Icons.Star /> : <Icons.StarOutline />}
+                       </button>
+                       <div className="font-bold">{l.name}</div>
+                   </div>
+                   <div className="text-[10px] text-secondary uppercase mt-1 flex gap-2 pl-7">
+                       <span>{l.muscle} • {EQUIPMENTS[l.equipment]}</span>
+                       <span style={{ color: TYPE_COLORS[l.type] }}>● {l.type}</span>
+                   </div>
                 </div>
                 <div className="flex gap-2">
                    <button onClick={() => setEditingExercise(l)} className="text-secondary p-2"><Icons.Settings /></button>
@@ -1002,7 +1153,7 @@ export default function App() {
         
         <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg">
            <h3 className="text-sm font-black uppercase text-secondary mb-4">Thème</h3>
-           <div className="flex gap-3 justify-center">
+           <div className="flex gap-3 justify-center flex-wrap">
              {(Object.keys(THEMES) as AccentColor[]).map(c => (
                 <button 
                   key={c}
@@ -1064,7 +1215,13 @@ export default function App() {
                 variant: 'danger',
                 onConfirm: () => {
                     localStorage.clear();
-                    window.location.reload();
+                    // Clear React state immediately
+                    setHistory([]);
+                    setPrograms(DEFAULT_PROGRAMS); // FIX: Restore default programs
+                    setLibrary(DEFAULT_LIBRARY);
+                    setSession(null);
+                    // Force reload after small delay
+                    setTimeout(() => window.location.reload(), 100);
                 }
             })} className="w-full py-3 bg-danger/10 text-danger rounded-xl text-xs font-bold uppercase border border-danger/20">
                 Tout effacer (Reset Factory)
@@ -1094,7 +1251,7 @@ export default function App() {
          <div className="grid gap-4">
             {MUSCLE_ORDER.filter(m => m !== 'Cardio').map(muscle => {
                const exos = library.filter(l => l.muscle === muscle);
-               const stats = exos.map(e => ({ name: e.name, ...getExerciseStats(e.id, history) })).filter(s => s.pr > 0).sort((a,b) => b.pr - a.pr);
+               const stats = exos.map(e => ({ name: e.name, ...getExerciseStats(e.id, history, e.type) })).filter(s => s.pr > 0).sort((a,b) => b.pr - a.pr);
                if (stats.length === 0) return null;
                
                return (
@@ -1182,12 +1339,9 @@ export default function App() {
         <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg">
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-sm font-black uppercase text-secondary">Volume Hebdo</h3>
-                <div className="flex items-center gap-2 text-[10px] font-bold bg-surface2 px-2 py-1 rounded-full">
-                    <button onClick={() => setCurrentWeekOffset(prev => prev - 1)} className="text-secondary hover:text-white px-2">◀</button>
-                    <button onClick={() => setCurrentWeekOffset(0)} className="text-primary hover:text-white px-1">RST</button>
-                    <span className="mx-1 text-secondary/50">|</span>
-                    <span>{weekStart.toLocaleDateString()}</span>
-                    <button onClick={() => setCurrentWeekOffset(prev => prev + 1)} className="text-secondary hover:text-white px-2">▶</button>
+                <div className="flex bg-surface2 rounded-full p-0.5">
+                     <button onClick={() => setVolumeChartMode('muscle')} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${volumeChartMode === 'muscle' ? 'bg-primary text-background' : 'text-secondary'}`}>Muscles</button>
+                     <button onClick={() => setVolumeChartMode('type')} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${volumeChartMode === 'type' ? 'bg-primary text-background' : 'text-secondary'}`}>Types</button>
                 </div>
             </div>
             
@@ -1204,15 +1358,25 @@ export default function App() {
                       />
                       <Bar dataKey="sets" radius={[0, 4, 4, 0]} barSize={16}>
                         {volumeData.map((entry, index) => (
-                           <Cell key={`cell-${index}`} fill={MUSCLE_COLORS[entry.name] || '#58a6ff'} />
+                           <Cell key={`cell-${index}`} fill={entry.color || MUSCLE_COLORS[entry.name] || '#58a6ff'} />
                         ))}
                         <LabelList dataKey="sets" position="right" fill="#e6edf3" fontSize={10} formatter={(v: number) => v > 0 ? v : ''} />
                       </Bar>
                    </BarChart>
                 </ResponsiveContainer>
             </div>
+            
+            <div className="flex justify-end mt-4">
+                <div className="flex items-center gap-2 text-[10px] font-bold bg-surface2 px-2 py-1 rounded-full">
+                    <button onClick={() => setCurrentWeekOffset(prev => prev - 1)} className="text-secondary hover:text-white px-2">◀</button>
+                    <button onClick={() => setCurrentWeekOffset(0)} className="text-primary hover:text-white px-1">RST</button>
+                    <span className="mx-1 text-secondary/50">|</span>
+                    <span>{weekStart.toLocaleDateString()}</span>
+                    <button onClick={() => setCurrentWeekOffset(prev => prev + 1)} className="text-secondary hover:text-white px-2">▶</button>
+                </div>
+            </div>
             <div className="text-center text-[9px] text-secondary mt-2 font-mono">
-               Séries EFFECTIVES (RIR ≤ 4) uniquement
+               {volumeChartMode === 'muscle' ? 'Séries EFFECTIVES (RIR ≤ 4) uniquement' : 'Répartition par Type (Toutes séries validées)'}
             </div>
         </div>
 
@@ -1382,7 +1546,7 @@ export default function App() {
         </h1>
         <div className="flex items-center gap-2">
             {view === View.Workout && !restTarget && (
-                <button onClick={() => setRestTarget(Date.now() + 60000)} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-secondary active:scale-90 transition-transform">
+                <button onClick={() => setRestTarget(Date.now() + 180000)} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-secondary active:scale-90 transition-transform">
                     ⏱️
                 </button>
             )}
@@ -1484,9 +1648,11 @@ export default function App() {
                                   
                                   const libEx = library.find(l => l.id === ex.id);
                                   const isCardio = libEx?.type === 'Cardio';
+                                  const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
 
                                   const weightStr = doneSets.map(st => st.weight).join(',');
-                                  const repStr = doneSets.map(st => st.reps).join(',');
+                                  // Normalize display: if static, stored value is seconds, so format it to MM:SS
+                                  const repStr = doneSets.map(st => isStatic ? formatDuration(parseDuration(st.reps)) : st.reps).join(',');
                                   // Cardio formatting in history: Parse stored seconds back to MM:SS if possible
                                   const rirStr = doneSets.map(st => isCardio ? formatDuration(st.rir || '0') : (st.rir || '-')).join(',');
 
@@ -1494,7 +1660,7 @@ export default function App() {
                                       <div key={ex.id} className="text-xs">
                                           <div className="font-bold text-white mb-0.5">{libEx?.name || ex.id}</div>
                                           <div className="font-mono text-secondary text-[11px] mb-1">
-                                            {weightStr} {isCardio ? "Lvl" : "kg"} x {repStr} {isCardio ? "m" : "reps"} | {isCardio ? "" : "RIR "}{rirStr}
+                                            {weightStr} {isCardio ? "Lvl" : "kg"} x {repStr} {isCardio ? "m" : isStatic ? "s" : "reps"} | {isCardio ? "" : "RIR "}{rirStr}
                                           </div>
                                           {ex.notes && (
                                               <div className="flex items-start gap-1.5 mt-0.5 text-[10px] text-secondary/70 italic pl-1 border-l-2 border-secondary/20">
@@ -1545,13 +1711,13 @@ export default function App() {
       )}
 
       {showAddExoModal && (
-         <Modal title="Ajouter Exercice" onClose={() => setShowAddExoModal(false)}>
+         <Modal title="Ajouter Exercice" onClose={() => { setShowAddExoModal(false); setLibraryFilter(''); }}>
             <div className="space-y-4">
                <input 
-                 autoFocus
                  placeholder="Rechercher (Nom, Muscle, Cardio...)" 
                  className="w-full bg-surface2 p-3 rounded-xl outline-none" 
                  onChange={(e) => setLibraryFilter(e.target.value)}
+                 autoFocus
                />
                <div className="max-h-60 overflow-y-auto space-y-2">
                  {library.filter(l => {
@@ -1560,26 +1726,40 @@ export default function App() {
                            l.muscle.toLowerCase().includes(q) ||
                            l.type.toLowerCase().includes(q) ||
                            l.id.toLowerCase().includes(q);
+                 }).sort((a,b) => {
+                    // FIX: Treat undefined and false as identical for sorting
+                    const favA = !!a.isFavorite;
+                    const favB = !!b.isFavorite;
+                    if (favA === favB) return a.name.localeCompare(b.name);
+                    return favA ? -1 : 1;
                  }).map(l => (
                     <button key={l.id} onClick={() => {
                        if (session) {
                           const newExos = [...session.exercises, {
                              id: l.id,
                              target: "3 x 10",
-                             rest: 120,
+                             rest: 90,
+                             targetRir: "", // FIX: Default target RIR empty as requested
                              isBonus: true,
                              notes: "",
-                             sets: [{ weight: "", reps: "", done: false }]
+                             sets: [{ weight: "", reps: "", done: false, rir: "" }] // FIX: Default set RIR empty
                           }];
                           setSession({...session, exercises: newExos});
                        }
+                       setLibraryFilter(''); // Fix: Clear filter on selection
                        setShowAddExoModal(false);
-                    }} className="w-full p-3 bg-surface2/50 rounded-xl text-left hover:bg-surface2 transition-colors flex justify-between items-center">
-                       <div>
-                          <div className="font-bold text-sm">{l.name}</div>
-                          <div className="text-[10px] text-secondary">{l.muscle}</div>
+                    }} className="w-full p-3 bg-surface2/50 rounded-xl text-left hover:bg-surface2 transition-colors flex justify-between items-center group">
+                       <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                              {l.isFavorite && <span className="text-gold"><Icons.Star /></span>}
+                              <div className="font-bold text-sm group-hover:text-primary transition-colors">{l.name}</div>
+                          </div>
+                          <div className="text-[10px] text-secondary uppercase mt-1 flex gap-2">
+                               <span>{l.muscle} • {EQUIPMENTS[l.equipment]}</span>
+                               <span style={{ color: TYPE_COLORS[l.type] }}>● {l.type}</span>
+                          </div>
                        </div>
-                       <div className="text-xl text-primary">+</div>
+                       <div className="text-xl text-primary font-black">+</div>
                     </button>
                  ))}
                </div>
@@ -1588,13 +1768,13 @@ export default function App() {
       )}
 
       {programExoPicker !== null && (
-          <Modal title="Choisir Exercice" onClose={() => setProgramExoPicker(null)}>
+          <Modal title="Choisir Exercice" onClose={() => { setProgramExoPicker(null); setLibraryFilter(''); }}>
              <div className="space-y-4">
                <input 
-                 autoFocus
                  placeholder="Rechercher (Nom, Muscle, Cardio...)" 
                  className="w-full bg-surface2 p-3 rounded-xl outline-none" 
                  onChange={(e) => setLibraryFilter(e.target.value)}
+                 autoFocus
                />
                <div className="max-h-60 overflow-y-auto space-y-2">
                  {library.filter(l => {
@@ -1603,6 +1783,12 @@ export default function App() {
                            l.muscle.toLowerCase().includes(q) ||
                            l.type.toLowerCase().includes(q) ||
                            l.id.toLowerCase().includes(q);
+                 }).sort((a,b) => {
+                    // FIX: Treat undefined and false as identical for sorting
+                    const favA = !!a.isFavorite;
+                    const favB = !!b.isFavorite;
+                    if (favA === favB) return a.name.localeCompare(b.name);
+                    return favA ? -1 : 1;
                  }).map(l => (
                     <button key={l.id} onClick={() => {
                         if (editingProgram && programExoPicker !== null) {
@@ -1610,13 +1796,20 @@ export default function App() {
                             newSess[programExoPicker].exos.push({ id: l.id, sets: 3, reps: "10", rest: 120 });
                             setEditingProgram({...editingProgram, sessions: newSess});
                         }
+                        setLibraryFilter(''); // Fix: Clear filter on selection
                         setProgramExoPicker(null);
-                    }} className="w-full p-3 bg-surface2/50 rounded-xl text-left hover:bg-surface2 transition-colors flex justify-between items-center">
-                       <div>
-                          <div className="font-bold text-sm">{l.name}</div>
-                          <div className="text-[10px] text-secondary">{l.muscle}</div>
+                    }} className="w-full p-3 bg-surface2/50 rounded-xl text-left hover:bg-surface2 transition-colors flex justify-between items-center group">
+                       <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                              {l.isFavorite && <span className="text-gold"><Icons.Star /></span>}
+                              <div className="font-bold text-sm group-hover:text-primary transition-colors">{l.name}</div>
+                          </div>
+                          <div className="text-[10px] text-secondary uppercase mt-1 flex gap-2">
+                               <span>{l.muscle} • {EQUIPMENTS[l.equipment]}</span>
+                               <span style={{ color: TYPE_COLORS[l.type] }}>● {l.type}</span>
+                          </div>
                        </div>
-                       <div className="text-xl text-primary">+</div>
+                       <div className="text-xl text-primary font-black">+</div>
                     </button>
                  ))}
                </div>
@@ -1635,9 +1828,7 @@ export default function App() {
                   <div className="space-y-1">
                      <label className="text-[10px] uppercase text-secondary">Type</label>
                      <select value={editingExercise.type} onChange={e => setEditingExercise({...editingExercise, type: e.target.value as ExerciseType})} className="w-full bg-surface2 p-3 rounded-xl outline-none">
-                        <option value="Polyarticulaire">Poly.</option>
-                        <option value="Isolation">Iso.</option>
-                        <option value="Cardio">Cardio</option>
+                        {EXERCISE_TYPE_LIST.map(t => <option key={t} value={t}>{t}</option>)}
                      </select>
                   </div>
                   <div className="space-y-1">
