@@ -9,13 +9,13 @@ export interface SetRecord {
 }
 
 export interface ExerciseInstance {
-  id: string;
+  exerciseId: number; // Foreign Key vers LibraryExercise
   target: string;
   rest: number;
   isBonus: boolean;
   notes: string;
   sets: SetRecord[];
-  targetRir?: string; // New field for static target goal
+  targetRir?: string;
 }
 
 export interface WorkoutSession {
@@ -32,12 +32,13 @@ export interface WorkoutSession {
 export type ExerciseType = 'Isolation' | 'Polyarticulaire' | 'Cardio' | 'Isométrique' | 'Étirement';
 
 export interface LibraryExercise {
-  id: string;
+  id: number; // Primary Key (Numeric)
   name: string;
   type: ExerciseType;
   muscle: string;
   equipment: string;
   isFavorite?: boolean;
+  isArchived?: boolean; // Soft Delete flag
   tips?: {
     setup?: string[];
     exec?: string[];
@@ -49,7 +50,7 @@ export interface ProgramSession {
   id: string;
   name: string;
   exos: {
-    id: string;
+    exerciseId: number; // Foreign Key
     sets: number;
     reps: string;
     rest: number;

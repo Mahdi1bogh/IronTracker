@@ -1,13 +1,14 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, WorkoutSession, Program, LibraryExercise, ExerciseInstance, SetRecord, AccentColor, BeforeInstallPromptEvent, ExerciseType, ProgramSession } from './types';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, WorkoutSession, Program, LibraryExercise, SetRecord, AccentColor, BeforeInstallPromptEvent, ExerciseType, ProgramSession } from './types';
 import { STORAGE_KEYS, Icons, THEMES, TYPE_COLORS, FATIGUE_COLORS } from './constants';
-import { EXERCISE_TYPES, EXERCISE_TYPE_LIST } from './data/exerciseTypes';
-import { getExerciseStats, calculate1RM, downloadFile, formatDuration, parseDuration, generateCSV, smartFormatTime } from './utils';
+import { EXERCISE_TYPE_LIST } from './data/exerciseTypes';
+import { getExerciseStats, calculate1RM, downloadFile, formatDuration, parseDuration, generateCSV, smartFormatTime, triggerHaptic } from './utils';
 import { DEFAULT_LIBRARY } from './data/exerciseLibrary';
 import { DEFAULT_PROGRAMS } from './data/programs';
 import { EQUIPMENTS } from './data/equipments';
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Legend, ReferenceLine, LineChart, Line, Cell, PieChart, Pie, ComposedChart, LabelList, ReferenceArea } from 'recharts';
+import { storage } from './services/storage';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, LineChart, Line, Cell, ComposedChart, LabelList, ReferenceArea } from 'recharts';
 
 const MUSCLE_COLORS: Record<string, string> = {
   'Pectoraux': '#58a6ff', 'Dos': '#3fb950', 'Jambes': '#d29922', 'Épaules': '#a371f7',
@@ -16,7 +17,6 @@ const MUSCLE_COLORS: Record<string, string> = {
 
 const MUSCLE_ORDER = ['Pectoraux', 'Dos', 'Épaules', 'Bras', 'Avant-bras', 'Abdos', 'Jambes', 'Mollets', 'Cou', 'Cardio'];
 
-// Ratio Levels Definitions
 const RATIO_ZONES = {
     global: [
         { max: 2.0, label: "Fondation", color: "#e0e0e0" },
@@ -48,25 +48,19 @@ const RATIO_ZONES = {
     ]
 };
 
-const getRatioLabel = (ratio: number, type: 'global'|'squat'|'bench'|'deadlift') => {
-    const zones = RATIO_ZONES[type];
-    for (const z of zones) {
-        if (ratio < z.max) return z.label;
-    }
-    return "Pro";
-};
-
 const getAccentStyle = (color: AccentColor) => {
   const theme = THEMES[color] || THEMES.blue;
   return { '--primary': theme.primary, '--primary-glow': theme.glow } as React.CSSProperties;
 };
 
+// --- COMPONENTS ---
+
 const Modal = ({ title, onClose, children }: { title: string; onClose: () => void; children?: React.ReactNode }) => (
   <div className="fixed inset-0 z-[400] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-    <div className="bg-surface border border-border w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 duration-300">
+    <div className="bg-surface border border-border w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 duration-300">
       <div className="p-6 border-b border-border flex justify-between items-center bg-surface2/20">
         <h3 className="text-xl font-black italic uppercase">{title}</h3>
-        <button onClick={onClose} className="p-2 text-secondary hover:text-white transition-colors">✕</button>
+        <button onClick={() => { triggerHaptic('click'); onClose(); }} className="p-2 text-secondary hover:text-white transition-colors">✕</button>
       </div>
       <div className="p-6 overflow-y-auto no-scrollbar">
         {children}
@@ -75,7 +69,6 @@ const Modal = ({ title, onClose, children }: { title: string; onClose: () => voi
   </div>
 );
 
-// Reusable Header Component
 const EditorHeader = ({ 
   title, 
   onCancel, 
@@ -92,19 +85,24 @@ const EditorHeader = ({
   children?: React.ReactNode 
 }) => (
   <div className="flex justify-between items-center px-1 mb-6 gap-2">
-    <button onClick={onCancel} className="px-4 py-2 text-danger text-[10px] font-black uppercase bg-danger/10 border border-danger/20 rounded-full transition-all active:scale-95 whitespace-nowrap">
+    <button onClick={() => { triggerHaptic('click'); onCancel(); }} className="px-4 py-2 text-danger text-[10px] font-bold uppercase tracking-wider bg-danger/10 border border-danger/20 rounded-full transition-all active:scale-95 whitespace-nowrap">
       {cancelLabel}
     </button>
     <div className="flex-1 text-center min-w-0">
       {children || <h2 className="text-xl font-black italic uppercase leading-tight truncate">{title}</h2>}
     </div>
-    <button onClick={onSave} className="px-6 py-3 bg-success text-white text-xs font-black rounded-full uppercase shadow-lg shadow-success/20 active:scale-95 whitespace-nowrap">
+    <button onClick={() => { triggerHaptic('success'); onSave(); }} className="px-6 py-3 bg-success text-white text-xs font-black rounded-full uppercase shadow-lg shadow-success/20 active:scale-95 whitespace-nowrap">
       {saveLabel}
     </button>
   </div>
 );
 
-// Helper to move items in array
+const SectionCard = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
+    <div className={`bg-surface border border-border rounded-[2rem] shadow-sm ${className}`}>
+        {children}
+    </div>
+);
+
 const moveItem = <T,>(arr: T[], from: number, to: number): T[] => {
   if (to < 0 || to >= arr.length) return arr;
   const newArr = [...arr];
@@ -112,6 +110,8 @@ const moveItem = <T,>(arr: T[], from: number, to: number): T[] => {
   newArr.splice(to, 0, item);
   return newArr;
 };
+
+// --- MAIN APP ---
 
 export default function App() {
   const [view, setView] = useState<View>(View.Dashboard);
@@ -123,59 +123,54 @@ export default function App() {
   const [calDate, setCalDate] = useState(new Date());
   const [elapsed, setElapsed] = useState(0);
 
-  // States for Rest Timer & Modals
+  // Safety lock: prevents saving empty state to storage before initial load is complete
+  const [isLoaded, setIsLoaded] = useState(false);
+
   const [restTarget, setRestTarget] = useState<number | null>(null); 
   const [restTime, setRestTime] = useState<number | null>(null); 
   const [showGo, setShowGo] = useState(false);
 
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
-  // Preview Session State
   const [previewSession, setPreviewSession] = useState<{ programName: string, session: ProgramSession } | null>(null);
   
   const [showAddExoModal, setShowAddExoModal] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState<{ message: string; subMessage?: string; onConfirm: () => void; variant?: 'danger' | 'primary' } | null>(null);
   
-  // UX State for Notes
   const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
-
-  // PWA Install Prompt State
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
-  // Library Editor State
   const [editingExercise, setEditingExercise] = useState<LibraryExercise | null>(null);
   const [libraryFilter, setLibraryFilter] = useState('');
   
-  // Program Editor Pickers
-  const [programExoPicker, setProgramExoPicker] = useState<number | null>(null); // sessionIdx
+  const [programExoPicker, setProgramExoPicker] = useState<number | null>(null); 
   
-  // 1RM Calc State
   const [oneRMWeight, setOneRMWeight] = useState("100");
   const [oneRMReps, setOneRMReps] = useState("5");
   const est1RM = useMemo(() => calculate1RM(oneRMWeight, oneRMReps), [oneRMWeight, oneRMReps]);
 
-  // Converter State
   const [convBB, setConvBB] = useState("");
   const [convDB, setConvDB] = useState("");
 
-  // Analytics State
-  const [analyticsExo, setAnalyticsExo] = useState('');
+  const [analyticsExo, setAnalyticsExo] = useState<string>('');
   const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d'|'30d'|'90d'|'1y'|'all'>('30d');
   const [analyticsMetric, setAnalyticsMetric] = useState<'max'|'volume'|'tonnage'>('max');
   
-  // Volume Chart Mode
   const [volumeChartMode, setVolumeChartMode] = useState<'muscle' | 'type'>('muscle');
-
-  // SBD Analytics State
   const [sbdViewMode, setSbdViewMode] = useState<'tracking' | 'ratio'>('ratio');
   const [sbdRatioCategory, setSbdRatioCategory] = useState<'global'|'squat'|'bench'|'deadlift'>('global');
   
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
   const [selectedDaySessions, setSelectedDaySessions] = useState<WorkoutSession[] | null>(null);
 
-  // --- ANALYTICS DATA CALCULATION ---
+  const getExerciseById = useCallback((id: number): LibraryExercise | undefined => {
+      return library.find(l => l.id === id);
+  }, [library]);
+
+  // --- ANALYTICS DATA ---
   const progData = useMemo(() => {
-        if (!analyticsExo || analyticsExo === 'global') return [];
-        const targetId = analyticsExo; 
+        if (!analyticsExo) return [];
+        const targetId = parseInt(analyticsExo);
+        if (isNaN(targetId)) return [];
         
         const now = Date.now();
         let minTime = 0;
@@ -190,14 +185,11 @@ export default function App() {
         const filteredHistory = history.filter(s => s.startTime >= minTime).sort((a,b) => a.startTime - b.startTime);
 
         return filteredHistory.map(s => {
-            const ex = s.exercises.find(e => e.id === targetId);
+            const ex = s.exercises.find(e => e.exerciseId === targetId);
             if (!ex) return null;
-
             const doneSets = ex.sets.filter(st => st.done);
             if (doneSets.length === 0) return null;
-
             let value = 0;
-            
             if (analyticsMetric === 'max') {
                 value = Math.max(...doneSets.map(ds => parseFloat(ds.weight) || 0));
             } else if (analyticsMetric === 'volume') {
@@ -205,7 +197,6 @@ export default function App() {
             } else if (analyticsMetric === 'tonnage') {
                 value = doneSets.reduce((acc, ds) => acc + ((parseFloat(ds.weight)||0) * (parseFloat(ds.reps)||0)), 0);
             }
-
             return {
                 date: new Date(s.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
                 fullDate: new Date(s.startTime).toLocaleDateString('fr-FR'),
@@ -220,7 +211,6 @@ export default function App() {
     const day = start.getDay();
     const diff = start.getDate() - day + (day === 0 ? -6 : 1) + (currentWeekOffset * 7);
     start.setDate(diff);
-    
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
     return [start, end];
@@ -228,20 +218,16 @@ export default function App() {
     
   const volumeData = useMemo(() => {
         const counts: Record<string, number> = {};
-        
         history.forEach(s => {
             const d = new Date(s.startTime);
             const dTime = d.setHours(0,0,0,0);
             const wStartTime = weekStart.setHours(0,0,0,0);
             const wEndTime = weekEnd.setHours(23,59,59,999);
-            
             if (dTime >= wStartTime && dTime <= wEndTime) {
                 s.exercises.forEach(e => {
-                    const lib = library.find(l => l.id === e.id);
+                    const lib = getExerciseById(e.exerciseId);
                     if (!lib) return;
-
                     if (volumeChartMode === 'muscle') {
-                        // Effective sets for Muscle Mode (RIR <= 4)
                         const hardSets = e.sets.filter(st => {
                             if (!st.done) return false;
                             const rir = parseInt(st.rir || '10');
@@ -250,7 +236,6 @@ export default function App() {
                         const muscle = lib.muscle || 'Autre';
                         counts[muscle] = (counts[muscle] || 0) + hardSets;
                     } else {
-                        // Total sets for Type Mode (All Done sets)
                         const doneSets = e.sets.filter(st => st.done).length;
                         const type = lib.type;
                         counts[type] = (counts[type] || 0) + doneSets;
@@ -258,99 +243,85 @@ export default function App() {
                 });
             }
         });
-        
         if (volumeChartMode === 'muscle') {
             return MUSCLE_ORDER.map(m => ({ name: m, sets: counts[m] || 0, color: MUSCLE_COLORS[m] }));
         } else {
             return EXERCISE_TYPE_LIST.map(t => ({ name: t, sets: counts[t] || 0, color: TYPE_COLORS[t] }));
         }
-  }, [history, weekStart, weekEnd, library, volumeChartMode]);
+  }, [history, weekStart, weekEnd, library, volumeChartMode, getExerciseById]);
 
   const sbdData = useMemo(() => {
         const sortedHistory = history.slice().sort((a,b) => a.startTime - b.startTime);
-        
         const currentPR = { squat: 0, bench: 0, dead: 0 };
         const dataPoints: any[] = [];
+        const SQUAT_ID = 33; 
+        const BENCH_ID = 1;
+        const DEAD_ID = 20;
 
         sortedHistory.forEach(s => {
-             let sessionMaxSquat = 0;
-             let sessionMaxBench = 0;
-             let sessionMaxDead = 0;
-
-             const getSessionE1RM = (exId: string, isDB: boolean = false) => {
-                 const ex = s.exercises.find(e => e.id === exId);
+             const getSessionE1RM = (exId: number, isDB: boolean = false) => {
+                 const ex = s.exercises.find(e => e.exerciseId === exId);
                  if (!ex) return 0;
                  const doneSets = ex.sets.filter(st => st.done);
                  if (doneSets.length === 0) return 0;
-                 
                  return Math.max(...doneSets.map(st => {
                      let w = parseFloat(st.weight) || 0;
-                     if (isDB) w = (w * 2) / 0.80; // NEW RATIO 0.80
+                     if (isDB) w = (w * 2) / 0.80; 
                      return calculate1RM(w, st.reps);
                  }));
              };
+             const bbSquat = getSessionE1RM(SQUAT_ID);
+             const bbBench = getSessionE1RM(BENCH_ID);
+             const bbDead = getSessionE1RM(DEAD_ID);
 
-             const bbSquat = getSessionE1RM('barbell_squat');
-             const dbSquat = getSessionE1RM('dumbbell_squat', true);
-             sessionMaxSquat = Math.max(bbSquat, dbSquat);
-
-             const bbBench = getSessionE1RM('barbell_bench_press');
-             const dbBench = getSessionE1RM('dumbbell_bench_press', true);
-             sessionMaxBench = Math.max(bbBench, dbBench);
-
-             const bbDead = getSessionE1RM('barbell_deadlift');
-             const rdlDead = getSessionE1RM('romanian_deadlift');
-             sessionMaxDead = Math.max(bbDead, rdlDead);
-
-             if (sessionMaxSquat > currentPR.squat) currentPR.squat = sessionMaxSquat;
-             if (sessionMaxBench > currentPR.bench) currentPR.bench = sessionMaxBench;
-             if (sessionMaxDead > currentPR.dead) currentPR.dead = sessionMaxDead;
+             if (bbSquat > currentPR.squat) currentPR.squat = bbSquat;
+             if (bbBench > currentPR.bench) currentPR.bench = bbBench;
+             if (bbDead > currentPR.dead) currentPR.dead = bbDead;
 
              const totalSBD = currentPR.squat + currentPR.bench + currentPR.dead;
              const bw = parseFloat(s.bodyWeight) || 0;
 
              if (totalSBD > 0 || bw > 0) {
                  const ratioGlobal = (totalSBD > 0 && bw > 0) ? parseFloat((totalSBD / bw).toFixed(2)) : null;
-                 const ratioSquat = (currentPR.squat > 0 && bw > 0) ? parseFloat((currentPR.squat / bw).toFixed(2)) : null;
-                 const ratioBench = (currentPR.bench > 0 && bw > 0) ? parseFloat((currentPR.bench / bw).toFixed(2)) : null;
-                 const ratioDeadlift = (currentPR.dead > 0 && bw > 0) ? parseFloat((currentPR.dead / bw).toFixed(2)) : null;
-
                  dataPoints.push({
                      date: new Date(s.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
                      fullDate: new Date(s.startTime).toLocaleDateString('fr-FR'),
                      sbd: totalSBD > 0 ? totalSBD : null,
                      bw: bw > 0 ? bw : null,
                      ratioGlobal,
-                     ratioSquat,
-                     ratioBench,
-                     ratioDeadlift
+                     ratioSquat: (currentPR.squat > 0 && bw > 0) ? parseFloat((currentPR.squat / bw).toFixed(2)) : null,
+                     ratioBench: (currentPR.bench > 0 && bw > 0) ? parseFloat((currentPR.bench / bw).toFixed(2)) : null,
+                     ratioDeadlift: (currentPR.dead > 0 && bw > 0) ? parseFloat((currentPR.dead / bw).toFixed(2)) : null
                  });
              }
         });
-
         return dataPoints;
   }, [history]);
 
+  // --- INITIALIZATION ---
   useEffect(() => {
-    const l = localStorage.getItem(STORAGE_KEYS.LIB);
-    const p = localStorage.getItem(STORAGE_KEYS.PROGS);
-    const h = localStorage.getItem(STORAGE_KEYS.HIST);
-    const s = localStorage.getItem(STORAGE_KEYS.SESS);
-    const t = localStorage.getItem(STORAGE_KEYS.THEME) as AccentColor;
+    let loadedLib = storage.library.load();
+    let loadedProgs = storage.programs.load();
+    let loadedHist = storage.history.load();
+    let loadedSess = storage.session.load();
+    const t = storage.theme.load() as AccentColor;
+    
+    if (loadedLib.length === 0) loadedLib = DEFAULT_LIBRARY;
+    if (loadedProgs.length === 0) loadedProgs = DEFAULT_PROGRAMS;
 
-    if (l) setLibrary(JSON.parse(l)); else setLibrary(DEFAULT_LIBRARY);
-    if (p) setPrograms(JSON.parse(p)); else setPrograms(DEFAULT_PROGRAMS);
-    if (h) setHistory(JSON.parse(h));
+    setLibrary(loadedLib);
+    setPrograms(loadedProgs);
+    setHistory(loadedHist);
     if (t) setAccentColor(t);
-    if (s) {
-      const active = JSON.parse(s);
-      setSession(active);
+    if (loadedSess) {
+      setSession(loadedSess);
       setView(View.Workout);
-      setElapsed(Math.floor((Date.now() - active.startTime) / 1000));
+      setElapsed(Math.floor((Date.now() - loadedSess.startTime) / 1000));
     }
+    // Enable saving ONLY after initial load is complete
+    setIsLoaded(true);
   }, []);
 
-  // --- INSTALL PROMPT LISTENER ---
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
@@ -360,12 +331,14 @@ export default function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  // Save Effect - Guarded by isLoaded
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.HIST, JSON.stringify(history));
-    localStorage.setItem(STORAGE_KEYS.PROGS, JSON.stringify(programs));
-    localStorage.setItem(STORAGE_KEYS.LIB, JSON.stringify(library));
-    localStorage.setItem(STORAGE_KEYS.THEME, accentColor);
-  }, [history, programs, library, accentColor]);
+    if (!isLoaded) return;
+    storage.history.save(history);
+    storage.programs.save(programs);
+    storage.library.save(library);
+    storage.theme.save(accentColor);
+  }, [history, programs, library, accentColor, isLoaded]);
 
   useEffect(() => {
     let interval: number;
@@ -375,7 +348,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [session]);
 
-  // --- REST TIMER LOGIC ---
+  // --- REST TIMER ---
   useEffect(() => {
     if (!restTarget) {
         if (restTime !== null) setRestTime(null);
@@ -388,7 +361,7 @@ export default function App() {
             if (!showGo) {
                 setRestTime(0);
                 setShowGo(true);
-                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                triggerHaptic('warning'); // Heavy vibration pattern for Go
                 setTimeout(() => {
                     setShowGo(false);
                     setRestTarget(null);
@@ -421,37 +394,49 @@ export default function App() {
     if (field === 'done') {
         if (value === true) {
             updates.completedAt = Date.now();
+            triggerHaptic('success'); // Validation feedback
         } else {
             updates.completedAt = undefined;
+            triggerHaptic('click'); // Uncheck feedback
         }
     }
-
     exo.sets[setIdx] = { ...exo.sets[setIdx], ...updates };
 
     if (field === 'done' && value === true && !wasDone) {
       setRestTarget(Date.now() + (exo.rest * 1000));
     }
     setSession(newSession);
-    localStorage.setItem(STORAGE_KEYS.SESS, JSON.stringify(newSession));
+    storage.session.save(newSession);
   };
 
-  const handleDeleteExo = (id: string) => {
-    const inHistory = history.some(s => s.exercises.some(e => e.id === id));
-    const inProgs = programs.some(p => p.sessions.some(s => s.exos.some(e => e.id === id)));
-    setPendingConfirm({
-        message: "Supprimer l'exercice ?",
-        subMessage: (inHistory || inProgs) ? "Utilisé dans l'historique ou programmes." : "Action irréversible.",
-        variant: 'danger',
-        onConfirm: () => setLibrary(prev => prev.filter(l => l.id !== id))
-    });
+  const handleDeleteExo = (id: number) => {
+    triggerHaptic('click');
+    const inHistory = history.some(s => s.exercises.some(e => e.exerciseId === id));
+    if (inHistory) {
+         setPendingConfirm({
+            message: "Archiver l'exercice ?",
+            subMessage: "Cet exercice est utilisé dans votre historique. Il sera masqué des listes mais conservé dans les archives.",
+            variant: 'danger',
+            onConfirm: () => setLibrary(prev => prev.map(l => l.id === id ? { ...l, isArchived: true } : l))
+         });
+    } else {
+         setPendingConfirm({
+            message: "Supprimer définitivement ?",
+            subMessage: "Cet exercice n'a jamais été utilisé. La suppression sera totale.",
+            variant: 'danger',
+            onConfirm: () => setLibrary(prev => prev.filter(l => l.id !== id))
+        });
+    }
   };
 
-  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+  const toggleFavorite = (id: number, e: React.MouseEvent) => {
       e.stopPropagation();
+      triggerHaptic('tick');
       setLibrary(prev => prev.map(l => l.id === id ? { ...l, isFavorite: !l.isFavorite } : l));
   };
 
   const startSession = (progName: string, sess: ProgramSession) => {
+      triggerHaptic('success');
       setSession({
         id: Date.now(),
         programName: progName,
@@ -460,10 +445,10 @@ export default function App() {
         bodyWeight: history[0]?.bodyWeight || "",
         fatigue: "3",
         exercises: sess.exos.map(e => ({
-            id: e.id,
+            exerciseId: e.exerciseId,
             target: `${e.sets} x ${e.reps}`,
             rest: e.rest,
-            targetRir: e.targetRir, // FIX: Store the planned target RIR separately
+            targetRir: e.targetRir, 
             isBonus: false,
             notes: "",
             sets: Array(e.sets).fill(null).map(() => ({ weight: "", reps: "", done: false, rir: e.targetRir || "" }))
@@ -482,15 +467,15 @@ export default function App() {
     const emptyDays = firstDay === 0 ? 6 : firstDay - 1;
 
     return (
-      <div className="space-y-6 pb-24 animate-in fade-in duration-500">
-        <section className="bg-surface border border-border p-5 rounded-[2.5rem] shadow-sm">
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <SectionCard className="p-5">
           <div className="flex justify-between items-center mb-6 px-2">
-            <button onClick={() => setCalDate(new Date(curYear, curMonth - 1))} className="p-3 text-primary text-2xl font-black">◀</button>
+            <button onClick={() => { triggerHaptic('click'); setCalDate(new Date(curYear, curMonth - 1)); }} className="p-3 text-primary text-2xl font-black">◀</button>
             <h3 className="text-xs font-black uppercase tracking-widest text-secondary">{calDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
-            <button onClick={() => setCalDate(new Date(curYear, curMonth + 1))} className="p-3 text-primary text-2xl font-black">▶</button>
+            <button onClick={() => { triggerHaptic('click'); setCalDate(new Date(curYear, curMonth + 1)); }} className="p-3 text-primary text-2xl font-black">▶</button>
           </div>
           <div className="grid grid-cols-7 gap-2">
-            {['L','M','M','J','V','S','D'].map(d => <div key={d} className="text-center text-[9px] font-black text-secondary/40 mb-2">{d}</div>)}
+            {['L','M','M','J','V','S','D'].map(d => <div key={d} className="text-center text-[9px] font-bold text-secondary/40 mb-2">{d}</div>)}
             {Array.from({ length: emptyDays }).map((_, i) => <div key={i} />)}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
@@ -500,27 +485,21 @@ export default function App() {
               });
               const count = daySessions.length;
               const intensity = count > 0 ? Math.min(100, daySessions.reduce((acc, s) => acc + s.exercises.length, 0) * 10) : 0;
-              
-              // Get types in session for dots (ONLY if sets are DONE)
               const typesInDay = new Set<ExerciseType>();
               daySessions.forEach(s => s.exercises.forEach(e => {
                   const hasDoneSets = e.sets.some(st => st.done);
                   if (hasDoneSets) {
-                      const lib = library.find(l => l.id === e.id);
+                      const lib = getExerciseById(e.exerciseId);
                       if (lib) typesInDay.add(lib.type);
                   }
               }));
               const typeDots = Array.from(typesInDay);
-
-              // Fatigue Indicator (Last session of day)
               const lastSession = daySessions[daySessions.length - 1];
               const fatigueScore = lastSession ? lastSession.fatigue : null;
 
               return (
-                <button key={i} onClick={() => count > 0 && setSelectedDaySessions(daySessions)} className={`relative aspect-square flex flex-col items-center justify-center rounded-xl text-xs font-mono transition-all ${count > 0 ? 'border border-primary/20 shadow-lg' : 'text-secondary/30'}`} style={count > 0 ? { backgroundColor: `rgba(88, 166, 255, ${intensity/100 * 0.4 + 0.1})`, borderColor: 'var(--primary)' } : {}}>
-                  {fatigueScore && (
-                      <div className="absolute top-1.5 left-1.5 w-1 h-3 rounded-full" style={{ backgroundColor: FATIGUE_COLORS[fatigueScore] }} />
-                  )}
+                <button key={i} onClick={() => { if (count > 0) { triggerHaptic('click'); setSelectedDaySessions(daySessions); } }} className={`relative aspect-square flex flex-col items-center justify-center rounded-lg text-xs font-mono transition-all ${count > 0 ? 'border border-primary/20 shadow-lg' : 'text-secondary/30'}`} style={count > 0 ? { backgroundColor: `rgba(88, 166, 255, ${intensity/100 * 0.4 + 0.1})`, borderColor: 'var(--primary)' } : {}}>
+                  {fatigueScore && <div className="absolute top-1.5 left-1.5 w-1 h-3 rounded-full" style={{ backgroundColor: FATIGUE_COLORS[fatigueScore] }} />}
                   <span className={count > 0 ? 'text-white font-bold' : ''}>{day}</span>
                   {count > 0 && (
                       <div className="flex gap-1 mt-1">
@@ -533,20 +512,20 @@ export default function App() {
               );
             })}
           </div>
-        </section>
+        </SectionCard>
 
         <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => setView(View.Records)} className="bg-surface border border-border p-6 rounded-3xl flex flex-col items-center gap-2 active:scale-95 transition-all">
+          <button onClick={() => { triggerHaptic('click'); setView(View.Records); }} className="bg-surface border border-border p-6 rounded-[2rem] flex flex-col items-center gap-2 active:scale-95 transition-all">
             <span className="text-gold"><Icons.Records /></span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-secondary">Records</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Records</span>
           </button>
-          <button onClick={() => setView(View.Analytics)} className="bg-surface border border-border p-6 rounded-3xl flex flex-col items-center gap-2 active:scale-95 transition-all">
+          <button onClick={() => { triggerHaptic('click'); setView(View.Analytics); }} className="bg-surface border border-border p-6 rounded-[2rem] flex flex-col items-center gap-2 active:scale-95 transition-all">
             <span className="text-primary"><Icons.Analytics /></span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-secondary">Progrès</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Progrès</span>
           </button>
         </div>
 
-        <button onClick={() => setView(View.Programs)} className="w-full py-6 bg-primary text-background font-black rounded-[2rem] shadow-xl flex items-center justify-center gap-3 uppercase text-lg active:scale-95 transition-all">
+        <button onClick={() => { triggerHaptic('click'); setView(View.Programs); }} className="w-full py-6 bg-primary text-background font-black rounded-[2rem] shadow-xl flex items-center justify-center gap-3 uppercase text-lg active:scale-95 transition-all">
           <Icons.Fitness /> Commencer
         </button>
       </div>
@@ -555,106 +534,84 @@ export default function App() {
 
   const renderWorkout = () => {
       if (!session) return null;
-      
-      // Strict Session Validation Logic
       const allSetsDone = session.exercises.every(ex => ex.sets.every(s => s.done));
       
       return (
       <div className="space-y-6 pb-40 animate-in fade-in duration-500">
         <div className="flex justify-between items-center px-1">
-           <button onClick={() => setPendingConfirm({
+           <button onClick={() => { triggerHaptic('error'); setPendingConfirm({
             message: "Annuler la séance ?",
             subMessage: "La progression actuelle sera perdue.",
             variant: "danger",
             onConfirm: () => { 
-                setRestTarget(null);
-                setRestTime(null);
-                setShowGo(false);
-                setSession(null); 
-                localStorage.removeItem(STORAGE_KEYS.SESS); 
-                setView(View.Dashboard); 
+                setRestTarget(null); setRestTime(null); setShowGo(false);
+                setSession(null); storage.session.save(null); setView(View.Dashboard); 
             }
-          })} className="px-4 py-2 text-danger text-[10px] font-black uppercase bg-danger/10 border border-danger/20 rounded-full transition-all active:scale-95">Annuler</button>
+          })}} className="px-4 py-2 text-danger text-[10px] font-bold uppercase bg-danger/10 border border-danger/20 rounded-full transition-all active:scale-95">Annuler</button>
           <div className="flex-1 text-center">
             <h2 className="text-xl font-black italic uppercase leading-tight">{session.sessionName}</h2>
-            <div className="text-secondary text-[10px] font-black uppercase tracking-widest">{session.programName}</div>
+            <div className="text-secondary text-[10px] font-bold uppercase tracking-widest">{session.programName}</div>
           </div>
           <button 
             disabled={!allSetsDone}
-            onClick={() => setPendingConfirm({
+            onClick={() => { triggerHaptic('click'); setPendingConfirm({
             message: "Terminer la séance ?",
             onConfirm: () => {
-              setRestTarget(null);
-              setRestTime(null);
-              setShowGo(false);
-              // Convert any Cardio "MM:SS" RIRs to seconds before saving history
-              // Convert any Static "MM:SS" Reps to seconds before saving history
+              triggerHaptic('success');
+              setRestTarget(null); setRestTime(null); setShowGo(false);
               const finishedSession = { ...session };
               finishedSession.exercises.forEach(ex => {
-                  const libDef = library.find(l => l.id === ex.id);
+                  const libDef = getExerciseById(ex.exerciseId);
                   if (libDef?.type === 'Cardio') {
-                      ex.sets.forEach(s => {
-                          if (s.rir) {
-                              s.rir = String(parseDuration(s.rir));
-                          }
-                      });
+                      ex.sets.forEach(s => { if (s.rir) s.rir = String(parseDuration(s.rir)); });
                   }
                   if (libDef?.type === 'Isométrique' || libDef?.type === 'Étirement') {
-                      ex.sets.forEach(s => {
-                          // Normalizing to seconds regardless of whether it was "45" or "00:45"
-                          s.reps = String(parseDuration(s.reps));
-                      });
+                      ex.sets.forEach(s => { s.reps = String(parseDuration(s.reps)); });
                   }
               });
-
               const finished = { ...finishedSession, endTime: Date.now() };
               setHistory(prev => [finished, ...prev]);
               setSession(null);
-              localStorage.removeItem(STORAGE_KEYS.SESS);
+              storage.session.save(null);
               setView(View.Dashboard);
             }
-          })} className={`px-6 py-3 text-xs font-black rounded-full uppercase shadow-lg transition-all ${allSetsDone ? 'bg-success text-white shadow-success/20' : 'bg-surface2 text-secondary/30 cursor-not-allowed border border-border/50'}`}>Finir</button>
+          })}} className={`px-6 py-3 text-xs font-black rounded-full uppercase shadow-lg transition-all ${allSetsDone ? 'bg-success text-white shadow-success/20' : 'bg-surface2 text-secondary/30 cursor-not-allowed border border-border/50'}`}>Finir</button>
         </div>
 
         <div className="bg-surface border border-border px-6 py-4 rounded-[2rem] flex items-center justify-between gap-4">
              <div className="flex-1 space-y-1">
-                 <label className="text-[8px] font-black uppercase text-secondary">Poids de Corps (kg)</label>
-                 <input type="text" inputMode="decimal" value={session.bodyWeight} onChange={e => {setSession({...session, bodyWeight: e.target.value}); localStorage.setItem(STORAGE_KEYS.SESS, JSON.stringify({...session, bodyWeight: e.target.value}))}} className="w-full bg-background border border-border p-2 rounded-lg text-sm font-mono font-bold text-center focus:border-primary outline-none" placeholder="Ex: 80" />
+                 <label className="text-[9px] font-bold uppercase text-secondary">Poids de Corps (kg)</label>
+                 <input type="text" inputMode="decimal" value={session.bodyWeight} onChange={e => {setSession({...session, bodyWeight: e.target.value}); storage.session.save({...session, bodyWeight: e.target.value})}} className="w-full bg-background border border-border p-2 rounded-xl text-sm font-mono font-bold text-center focus:border-primary outline-none" placeholder="Ex: 80" />
              </div>
              <div className="flex-1 space-y-1">
                  <div className="flex justify-between items-center">
-                    <label className="text-[8px] font-black uppercase text-secondary">Forme Physique (1-5)</label>
-                    <button className="text-[8px] text-primary" onClick={() => alert("1 = Épuisé\n5 = Olympique")}>?</button>
+                    <label className="text-[9px] font-bold uppercase text-secondary">Forme (1-5)</label>
+                    <button className="text-[9px] text-primary" onClick={() => alert("1 = Épuisé\n5 = Olympique")}>?</button>
                  </div>
-                 <input type="number" min="1" max="5" value={session.fatigue} onChange={e => {setSession({...session, fatigue: e.target.value}); localStorage.setItem(STORAGE_KEYS.SESS, JSON.stringify({...session, fatigue: e.target.value}))}} className="w-full bg-background border border-border p-2 rounded-lg text-sm font-mono font-bold text-center focus:border-primary outline-none" placeholder="3" />
+                 <input type="number" min="1" max="5" value={session.fatigue} onChange={e => {setSession({...session, fatigue: e.target.value}); storage.session.save({...session, fatigue: e.target.value})}} className="w-full bg-background border border-border p-2 rounded-xl text-sm font-mono font-bold text-center focus:border-primary outline-none" placeholder="3" />
              </div>
         </div>
 
         {session.exercises.map((exo, eIdx) => {
-          const libEx = library.find(l => l.id === exo.id);
-          const stats = getExerciseStats(exo.id, history, libEx?.type);
+          const libEx = getExerciseById(exo.exerciseId);
+          const stats = getExerciseStats(exo.exerciseId, history, libEx?.type);
           const isCardio = libEx?.type === 'Cardio';
           const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
-
           const bestSet = [...exo.sets].filter(s => s.done).sort((a,b) => calculate1RM(b.weight, b.reps) - calculate1RM(a.weight, a.reps))[0];
           const currentE1RM = (bestSet && !isCardio && !isStatic) ? calculate1RM(bestSet.weight, bestSet.reps) : 0;
-          
           const delta = currentE1RM - stats.lastE1RM;
-          const isPos = delta > 0;
-          const isNeg = delta < 0;
-          const deltaSymbol = isPos ? '▲' : isNeg ? '▼' : '▬';
-          const deltaStr = `(${deltaSymbol} ${isPos ? '+' : ''}${delta.toFixed(1)}kg)`;
-          const deltaClass = isPos ? 'text-success' : isNeg ? 'text-danger' : 'text-secondary';
+          const deltaStr = `(${delta > 0 ? '▲ +' : delta < 0 ? '▼' : '▬'}${delta.toFixed(1)}kg)`;
+          const deltaClass = delta > 0 ? 'text-success' : delta < 0 ? 'text-danger' : 'text-secondary';
 
           return (
-            <div key={eIdx} className="bg-surface border border-border rounded-[2.5rem] overflow-hidden shadow-lg animate-in slide-in-from-bottom duration-300">
+            <SectionCard key={eIdx} className="overflow-hidden animate-in slide-in-from-bottom duration-300">
               <div className="p-6 border-b border-border bg-surface2/20">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-xl font-black italic uppercase leading-none">{libEx?.name || exo.id}</h3>
+                        <h3 className="text-xl font-black italic uppercase leading-none">{libEx?.name || `Exo #${exo.exerciseId}`}</h3>
                         {libEx?.tips && (
-                            <button onClick={() => setPendingConfirm({
+                            <button onClick={() => { triggerHaptic('click'); setPendingConfirm({
                                 message: libEx.name,
                                 subMessage: [
                                     ...(libEx.tips.setup ? ["SETUP:", ...libEx.tips.setup] : []),
@@ -662,50 +619,37 @@ export default function App() {
                                     ...(libEx.tips.mistake ? ["ERREURS:", ...libEx.tips.mistake] : [])
                                 ].join('\n'),
                                 onConfirm: () => {}, variant: 'primary'
-                            })} className="text-[10px] font-black bg-primary/20 text-primary px-1.5 rounded-full border border-primary/40">?</button>
+                            })}} className="text-[10px] font-bold bg-primary/20 text-primary px-1.5 rounded-full border border-primary/40">?</button>
                         )}
                         <button 
                            onClick={() => setExpandedNotes(prev => ({...prev, [eIdx]: !prev[eIdx]}))} 
-                           className={`text-[10px] font-black px-1.5 py-0.5 rounded-full border transition-all ${exo.notes ? 'bg-secondary/20 text-white border-secondary/40' : 'text-secondary/50 border-secondary/20 hover:text-white'}`}
+                           className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border transition-all ${exo.notes ? 'bg-secondary/20 text-white border-secondary/40' : 'text-secondary/50 border-secondary/20 hover:text-white'}`}
                         >
                            <Icons.Note />
                         </button>
                     </div>
                     
-                    <div className="text-[9px] font-black uppercase text-secondary mb-2">
-                        {/* FIX: Use targetRir instead of sets[0].rir for the goal display */}
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">
                         Objectif : {exo.target} | {isCardio ? "Durée" : "RIR"} {exo.targetRir || '-'} | REST {exo.rest}s
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{libEx?.muscle || 'Muscle'}</span>
-                      <span 
-                         className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border"
-                         style={{ 
-                             backgroundColor: `${TYPE_COLORS[libEx?.type || 'Isolation']}20`, // 20% opacity 
-                             borderColor: `${TYPE_COLORS[libEx?.type || 'Isolation']}40`,
-                             color: TYPE_COLORS[libEx?.type || 'Isolation']
-                         }}
-                      >
+                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{libEx?.muscle || 'Muscle'}</span>
+                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border" style={{ backgroundColor: `${TYPE_COLORS[libEx?.type || 'Isolation']}20`, borderColor: `${TYPE_COLORS[libEx?.type || 'Isolation']}40`, color: TYPE_COLORS[libEx?.type || 'Isolation'] }}>
                          {libEx?.type}
                       </span>
-                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-surface2 text-secondary">{EQUIPMENTS[libEx?.equipment || 'OT']}</span>
+                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-surface2 text-secondary">{EQUIPMENTS[libEx?.equipment || 'OT']}</span>
                       {!isCardio && !isStatic && (
-                          <>
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gold/10 border border-gold/30 rounded-full">
-                                <span className="text-[8px] font-black text-gold uppercase">Record Max:</span>
-                                <span className="text-[10px] font-mono text-white font-bold">{stats.prMax}kg</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan1rm/10 border border-cyan1rm/30 rounded-full">
-                                <span className="text-[8px] font-black text-cyan1rm uppercase">PR 1RM:</span>
+                          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gold/10 border border-gold/30 rounded-full">
+                                <span className="text-[8px] font-black text-gold uppercase">PR 1RM:</span>
                                 <span className="text-[10px] font-mono text-white font-bold">{stats.pr}kg</span>
-                            </div>
-                          </>
+                          </div>
                       )}
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                       <button onClick={() => {
+                          triggerHaptic('error');
                           setPendingConfirm({
                             message: "Supprimer cet exercice ?",
                             subMessage: "L'exercice sera retiré de la séance en cours.",
@@ -718,30 +662,20 @@ export default function App() {
                           });
                       }} className="text-danger/40 p-2 hover:text-danger transition-colors">✕</button>
                       <div className="flex gap-1">
-                        {eIdx > 0 && (
-                            <button onClick={() => {
-                                const newExos = moveItem(session.exercises, eIdx, eIdx - 1);
-                                setSession({ ...session, exercises: newExos });
-                            }} className="text-secondary hover:text-primary p-1">▲</button>
-                        )}
-                        {eIdx < session.exercises.length - 1 && (
-                            <button onClick={() => {
-                                const newExos = moveItem(session.exercises, eIdx, eIdx + 1);
-                                setSession({ ...session, exercises: newExos });
-                            }} className="text-secondary hover:text-primary p-1">▼</button>
-                        )}
+                        {eIdx > 0 && <button onClick={() => { triggerHaptic('click'); setSession({...session, exercises: moveItem(session.exercises, eIdx, eIdx - 1)})}} className="text-secondary hover:text-primary p-1">▲</button>}
+                        {eIdx < session.exercises.length - 1 && <button onClick={() => { triggerHaptic('click'); setSession({...session, exercises: moveItem(session.exercises, eIdx, eIdx + 1)})}} className="text-secondary hover:text-primary p-1">▼</button>}
                       </div>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                    <div className="bg-background/40 p-3 rounded-2xl border border-border/40">
-                      <div className="text-[8px] font-black uppercase text-secondary mb-1">Dernière Séance</div>
+                      <div className="text-[9px] font-bold uppercase text-secondary mb-1">Dernière Séance</div>
                       <div className="text-[9px] font-mono text-secondary italic break-words">{stats.lastDetailed}</div>
                    </div>
                    {!isCardio && !isStatic && (
                        <div className="bg-background/40 p-3 rounded-2xl border border-border/40 text-center flex flex-col justify-center">
-                          <div className="text-[8px] font-black uppercase text-secondary mb-1">e1RM Session</div>
+                          <div className="text-[9px] font-bold uppercase text-secondary mb-1">e1RM Session</div>
                           <div className="text-xs font-mono font-bold flex items-center justify-center gap-2">
                             <span className="text-white">{currentE1RM}kg</span>
                             <span className="text-secondary/50">|</span>
@@ -771,365 +705,184 @@ export default function App() {
 
               <div className="p-6 space-y-4">
                 {exo.sets.map((set, sIdx) => {
-                  // Strict Validation Logic: Button disabled if fields are empty
-                  const isSetValid = set.weight !== "" && set.reps !== ""; // For Cardio/Iso, reps might be duration, but field is same
-
+                  const isSetValid = set.weight !== "" && set.reps !== "";
                   return (
                   <div key={sIdx} className={`p-4 rounded-2xl border transition-all ${set.done ? 'bg-success/5 border-success/30' : 'bg-surface2/40 border-transparent'}`}>
                     <div className="grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-1 text-[10px] font-mono font-bold text-secondary">{sIdx+1}</div>
                       <div className="col-span-3">
-                        <label className="text-[8px] uppercase text-secondary block text-center mb-1">{isCardio ? "Niveau" : isStatic ? "Lest" : "Poids"}</label>
-                        <input 
-                           type="text" 
-                           inputMode="decimal" 
-                           value={set.weight} 
-                           onChange={e => updateSet(eIdx, sIdx, 'weight', e.target.value)} 
-                           className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-sm font-mono focus:border-primary outline-none" 
-                           placeholder={isCardio ? "Lvl" : "kg"} 
-                        />
+                        <label className="text-[9px] font-bold uppercase text-secondary block text-center mb-1">{isCardio ? "Niveau" : isStatic ? "Lest" : "Poids"}</label>
+                        <input type="text" inputMode="decimal" value={set.weight} onChange={e => updateSet(eIdx, sIdx, 'weight', e.target.value)} className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-sm font-mono focus:border-primary outline-none" placeholder={isCardio ? "Lvl" : "kg"} />
                       </div>
                       <div className="col-span-3">
-                        <label className="text-[8px] uppercase text-secondary block text-center mb-1">{isCardio ? "Dist." : isStatic ? "Durée" : "Reps"}</label>
-                        <input 
-                           type="text" 
-                           inputMode="decimal"
-                           value={set.reps} 
-                           onChange={e => updateSet(eIdx, sIdx, 'reps', e.target.value)}
-                           onBlur={e => {
-                              if (isStatic) {
-                                  // For static holds, treat this input as time duration
-                                  updateSet(eIdx, sIdx, 'reps', smartFormatTime(e.target.value, 'Isométrique'));
-                              }
-                           }}
-                           className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-sm font-mono focus:border-primary outline-none" 
-                           placeholder={isCardio ? "m" : isStatic ? "s" : "reps"} 
-                        />
+                        <label className="text-[9px] font-bold uppercase text-secondary block text-center mb-1">{isCardio ? "Dist." : isStatic ? "Durée" : "Reps"}</label>
+                        <input type="text" inputMode="decimal" value={set.reps} onChange={e => updateSet(eIdx, sIdx, 'reps', e.target.value)} onBlur={e => isStatic && updateSet(eIdx, sIdx, 'reps', smartFormatTime(e.target.value, 'Isométrique'))} className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-sm font-mono focus:border-primary outline-none" placeholder={isCardio ? "m" : isStatic ? "s" : "reps"} />
                       </div>
                       <div className="col-span-2">
-                        <label className="text-[8px] uppercase text-secondary block text-center mb-1">{isCardio ? "Durée" : "RIR"}</label>
-                        <input 
-                            type="text" 
-                            inputMode="decimal"
-                            value={set.rir} 
-                            onChange={e => updateSet(eIdx, sIdx, 'rir', e.target.value)} 
-                            onBlur={e => {
-                                if (isCardio) {
-                                    updateSet(eIdx, sIdx, 'rir', smartFormatTime(e.target.value, 'Cardio'));
-                                }
-                            }}
-                            className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-[10px] font-mono focus:border-primary outline-none" 
-                            placeholder={isCardio ? "MM:SS" : "RIR"} 
-                        />
+                        <label className="text-[9px] font-bold uppercase text-secondary block text-center mb-1">{isCardio ? "Durée" : "RIR"}</label>
+                        <input type="text" inputMode="decimal" value={set.rir} onChange={e => updateSet(eIdx, sIdx, 'rir', e.target.value)} onBlur={e => isCardio && updateSet(eIdx, sIdx, 'rir', smartFormatTime(e.target.value, 'Cardio'))} className="w-full bg-background border border-border text-center py-2.5 rounded-xl text-[10px] font-mono focus:border-primary outline-none" placeholder={isCardio ? "MM:SS" : "RIR"} />
                       </div>
                       <div className="col-span-3 flex gap-1 pt-4">
-                        <button 
-                           disabled={!isSetValid}
-                           onClick={() => updateSet(eIdx, sIdx, 'done', !set.done)} 
-                           className={`flex-1 py-2.5 rounded-xl font-black text-[10px] transition-all flex flex-col items-center justify-center leading-none ${!isSetValid ? 'bg-surface2 text-secondary/20 border border-transparent cursor-not-allowed' : set.done ? 'bg-success text-white' : 'bg-surface2 text-secondary border border-border'}`}
-                        >
-                             {set.done ? (
-                                <>
-                                  <span>OK</span>
-                                  {set.completedAt && <span className="text-[8px] font-mono opacity-80 mt-0.5">{new Date(set.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>}
-                                </>
-                             ) : 'VAL'}
+                        <button disabled={!isSetValid} onClick={() => updateSet(eIdx, sIdx, 'done', !set.done)} className={`flex-1 py-2.5 rounded-xl font-black text-[10px] transition-all flex flex-col items-center justify-center leading-none ${!isSetValid ? 'bg-surface2 text-secondary/20 border border-transparent cursor-not-allowed' : set.done ? 'bg-success text-white' : 'bg-surface2 text-secondary border border-border'}`}>
+                             {set.done ? <><span>OK</span>{set.completedAt && <span className="text-[8px] font-mono opacity-80 mt-0.5">{new Date(set.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>}</> : 'VAL'}
                         </button>
                         <button onClick={() => {
-                          const deleteSet = () => {
-                            const newExoSets = [...exo.sets];
-                            newExoSets.splice(sIdx, 1);
-                            const newExos = [...session.exercises];
-                            newExos[eIdx].sets = newExoSets;
-                            setSession({...session, exercises: newExos});
-                          };
-
                           if (set.done) {
-                            setPendingConfirm({
-                              message: "Supprimer la série ?",
-                              subMessage: "Cette série est déjà validée.",
-                              variant: 'danger',
-                              onConfirm: deleteSet
-                            });
+                            triggerHaptic('error');
+                            setPendingConfirm({ message: "Supprimer la série ?", subMessage: "Cette série est déjà validée.", variant: 'danger', onConfirm: () => {
+                                const newExos = [...session.exercises]; newExos[eIdx].sets.splice(sIdx, 1); setSession({...session, exercises: newExos});
+                            }});
                           } else {
-                            deleteSet();
+                            triggerHaptic('click');
+                            const newExos = [...session.exercises]; newExos[eIdx].sets.splice(sIdx, 1); setSession({...session, exercises: newExos});
                           }
                         }} className="p-2.5 text-danger/40">✕</button>
                       </div>
                     </div>
                   </div>
-                );
+                  );
                 })}
                 <button onClick={() => {
+                  triggerHaptic('click');
                   const newExos = [...session.exercises];
                   const last = newExos[eIdx].sets[newExos[eIdx].sets.length-1];
                   newExos[eIdx].sets.push({ weight: last?.weight || "", reps: last?.reps || "", done: false, rir: last?.rir || "" });
                   setSession({...session, exercises: newExos});
-                }} className="w-full py-4 border-2 border-dashed border-border rounded-2xl text-[10px] font-black uppercase text-secondary hover:text-primary">+ Ajouter Série</button>
+                }} className="w-full py-4 border-2 border-dashed border-border rounded-2xl text-[10px] font-bold uppercase tracking-wider text-secondary hover:text-primary">+ Ajouter Série</button>
               </div>
-            </div>
+            </SectionCard>
           );
         })}
-        <button onClick={() => setShowAddExoModal(true)} className="w-full py-6 border-2 border-dashed border-border rounded-[2.5rem] text-secondary font-black uppercase">+ Mouvement</button>
+        <button onClick={() => { triggerHaptic('click'); setShowAddExoModal(true); }} className="w-full py-6 border-2 border-dashed border-border rounded-[2rem] text-secondary font-black uppercase">+ Mouvement</button>
       </div>
     );
   };
   const renderEditorProgram = () => {
     if (!editingProgram) return null;
     return (
-      <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+      <div className="space-y-6 animate-in fade-in duration-500">
         <EditorHeader
           title={editingProgram.name}
-          onCancel={() => { 
-              setPendingConfirm({
-                  message: "Annuler les modifications ?",
-                  subMessage: "Toutes les modifications non sauvegardées seront perdues.",
-                  variant: 'danger',
-                  onConfirm: () => {
-                     setEditingProgram(null); 
-                     setView(View.Programs);
-                  }
-              });
-          }}
-          onSave={() => {
-             setPendingConfirm({
-                 message: "Sauvegarder les modifications ?",
-                 variant: 'primary',
-                 onConfirm: () => {
-                     const newProgs = programs.map(p => p.id === editingProgram.id ? editingProgram : p);
-                     if (!programs.find(p => p.id === editingProgram.id)) newProgs.push(editingProgram);
-                     setPrograms(newProgs);
-                     setEditingProgram(null);
-                     setView(View.Programs);
-                 }
-             });
-          }}
-          saveLabel="Sauver"
-          cancelLabel="Annuler"
+          onCancel={() => setPendingConfirm({ message: "Annuler ?", subMessage: "Modifications perdues.", variant: 'danger', onConfirm: () => { setEditingProgram(null); setView(View.Programs); } })}
+          onSave={() => setPendingConfirm({ message: "Sauvegarder ?", variant: 'primary', onConfirm: () => {
+              const newProgs = programs.map(p => p.id === editingProgram.id ? editingProgram : p);
+              if (!programs.find(p => p.id === editingProgram.id)) newProgs.push(editingProgram);
+              setPrograms(newProgs); setEditingProgram(null); setView(View.Programs);
+          }})}
         >
-          <input 
-            value={editingProgram.name} 
-            onChange={e => setEditingProgram({...editingProgram, name: e.target.value})}
-            className="bg-transparent border-b border-border text-center w-full text-xl font-black italic uppercase outline-none focus:border-primary"
-            placeholder="Nom du programme"
-          />
+          <input value={editingProgram.name} onChange={e => setEditingProgram({...editingProgram, name: e.target.value})} className="bg-transparent border-b border-border text-center w-full text-xl font-black italic uppercase outline-none focus:border-primary" placeholder="Nom du programme" />
         </EditorHeader>
 
-        {editingProgram.sessions.map((sess, sIdx) => (
-          <div key={sess.id} className="bg-surface border border-border rounded-[2.5rem] overflow-hidden shadow-lg p-6">
+        {(editingProgram.sessions || []).map((sess, sIdx) => (
+          <SectionCard key={sess.id} className="overflow-hidden p-6">
              <div className="flex justify-between items-center mb-4 border-b border-border/50 pb-2">
-                <input 
-                  value={sess.name}
-                  onChange={e => {
-                    const newSess = [...editingProgram.sessions];
-                    newSess[sIdx].name = e.target.value;
-                    setEditingProgram({...editingProgram, sessions: newSess});
-                  }}
-                  className="bg-transparent font-black italic uppercase text-lg outline-none w-full"
-                  placeholder="Nom séance (ex: Push A)"
-                />
-                <button onClick={() => {
-                   const newSess = [...editingProgram.sessions];
-                   newSess.splice(sIdx, 1);
-                   setEditingProgram({...editingProgram, sessions: newSess});
-                }} className="text-danger p-2">✕</button>
+                <input value={sess.name} onChange={e => { const newSess = [...editingProgram.sessions]; newSess[sIdx].name = e.target.value; setEditingProgram({...editingProgram, sessions: newSess}); }} className="bg-transparent font-black italic uppercase text-lg outline-none w-full" placeholder="Nom séance" />
+                <button onClick={() => { const newSess = [...editingProgram.sessions]; newSess.splice(sIdx, 1); setEditingProgram({...editingProgram, sessions: newSess}); }} className="text-danger p-2">✕</button>
              </div>
-             
              <div className="space-y-3">
-               {sess.exos.map((ex, exIdx) => {
-                 const libEx = library.find(l => l.id === ex.id);
+               {(sess.exos || []).map((ex, exIdx) => {
+                 const libEx = getExerciseById(ex.exerciseId);
                  const isCardio = libEx?.type === 'Cardio';
-                 const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
-                 
                  return (
-                   <div key={exIdx} className="bg-surface2/30 p-4 rounded-xl flex justify-between items-center gap-2">
+                   <div key={exIdx} className="bg-surface2/30 p-4 rounded-2xl flex justify-between items-center gap-2">
                       <div className="flex-1">
-                        <div className="text-sm font-bold">{libEx?.name || ex.id}</div>
+                        <div className="text-sm font-bold">{libEx?.name || `Exo #${ex.exerciseId}`}</div>
                         <div className="flex gap-2 mt-1">
                            <div className="flex flex-col">
-                             <label className="text-[8px] uppercase text-secondary">Séries</label>
-                             <input 
-                                type="number" 
-                                value={ex.sets} 
-                                onChange={e => {
-                                  const newSess = [...editingProgram.sessions];
-                                  newSess[sIdx].exos[exIdx].sets = parseInt(e.target.value);
-                                  setEditingProgram({...editingProgram, sessions: newSess});
-                                }} 
-                                className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" 
-                             />
+                             <label className="text-[9px] font-bold uppercase text-secondary">Séries</label>
+                             <input type="number" value={ex.sets} onChange={e => { const newSess = [...editingProgram.sessions]; newSess[sIdx].exos[exIdx].sets = parseInt(e.target.value); setEditingProgram({...editingProgram, sessions: newSess}); }} className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" />
                            </div>
                            <div className="flex flex-col">
-                             <label className="text-[8px] uppercase text-secondary">{isCardio ? "Dist." : isStatic ? "Durée" : "Reps"}</label>
-                             <input 
-                                type="text" 
-                                value={ex.reps} 
-                                onChange={e => {
-                                  const newSess = [...editingProgram.sessions];
-                                  newSess[sIdx].exos[exIdx].reps = e.target.value;
-                                  setEditingProgram({...editingProgram, sessions: newSess});
-                                }} 
-                                className="bg-surface2/50 w-20 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" 
-                             />
+                             <label className="text-[9px] font-bold uppercase text-secondary">{isCardio ? "Dist/Dur" : "Reps"}</label>
+                             <input type="text" value={ex.reps} onChange={e => { const newSess = [...editingProgram.sessions]; newSess[sIdx].exos[exIdx].reps = e.target.value; setEditingProgram({...editingProgram, sessions: newSess}); }} className="bg-surface2/50 w-20 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" />
                            </div>
                            <div className="flex flex-col">
-                             <label className="text-[8px] uppercase text-secondary">{isCardio ? "Durée" : "RIR"}</label>
-                             <input 
-                                type="text" 
-                                value={ex.targetRir || ''} 
-                                onChange={e => {
-                                  const newSess = [...editingProgram.sessions];
-                                  newSess[sIdx].exos[exIdx].targetRir = e.target.value;
-                                  setEditingProgram({...editingProgram, sessions: newSess});
-                                }} 
-                                className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" 
-                                placeholder={isCardio ? "MM:SS" : "1-2"} 
-                             />
+                             <label className="text-[9px] font-bold uppercase text-secondary">{isCardio ? "Durée" : "RIR"}</label>
+                             <input type="text" value={ex.targetRir || ''} onChange={e => { const newSess = [...editingProgram.sessions]; newSess[sIdx].exos[exIdx].targetRir = e.target.value; setEditingProgram({...editingProgram, sessions: newSess}); }} className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" />
                            </div>
                            <div className="flex flex-col">
-                             <label className="text-[8px] uppercase text-secondary">Repos</label>
-                             <input 
-                                type="number" 
-                                value={ex.rest} 
-                                onChange={e => {
-                                  const newSess = [...editingProgram.sessions];
-                                  newSess[sIdx].exos[exIdx].rest = parseInt(e.target.value);
-                                  setEditingProgram({...editingProgram, sessions: newSess});
-                                }} 
-                                className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" 
-                             />
+                             <label className="text-[9px] font-bold uppercase text-secondary">Repos</label>
+                             <input type="number" value={ex.rest} onChange={e => { const newSess = [...editingProgram.sessions]; newSess[sIdx].exos[exIdx].rest = parseInt(e.target.value); setEditingProgram({...editingProgram, sessions: newSess}); }} className="bg-surface2/50 w-16 py-2 rounded-xl text-center font-mono font-bold text-xs focus:border-primary border border-transparent outline-none" />
                            </div>
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <button onClick={() => {
-                           const newSess = [...editingProgram.sessions];
-                           newSess[sIdx].exos.splice(exIdx, 1);
-                           setEditingProgram({...editingProgram, sessions: newSess});
-                        }} className="text-danger/50 hover:text-danger">✕</button>
+                        <button onClick={() => { const newSess = [...editingProgram.sessions]; newSess[sIdx].exos.splice(exIdx, 1); setEditingProgram({...editingProgram, sessions: newSess}); }} className="text-danger/50 hover:text-danger">✕</button>
                         <div className="flex flex-col">
-                            {exIdx > 0 && <button onClick={() => {
-                                const newSess = [...editingProgram.sessions];
-                                newSess[sIdx].exos = moveItem(newSess[sIdx].exos, exIdx, exIdx - 1);
-                                setEditingProgram({...editingProgram, sessions: newSess});
-                            }} className="text-xs text-secondary">▲</button>}
-                            {exIdx < sess.exos.length - 1 && <button onClick={() => {
-                                const newSess = [...editingProgram.sessions];
-                                newSess[sIdx].exos = moveItem(newSess[sIdx].exos, exIdx, exIdx + 1);
-                                setEditingProgram({...editingProgram, sessions: newSess});
-                            }} className="text-xs text-secondary">▼</button>}
+                            {exIdx > 0 && <button onClick={() => { const newSess = [...editingProgram.sessions]; newSess[sIdx].exos = moveItem(newSess[sIdx].exos, exIdx, exIdx - 1); setEditingProgram({...editingProgram, sessions: newSess}); }} className="text-xs text-secondary">▲</button>}
+                            {exIdx < sess.exos.length - 1 && <button onClick={() => { const newSess = [...editingProgram.sessions]; newSess[sIdx].exos = moveItem(newSess[sIdx].exos, exIdx, exIdx + 1); setEditingProgram({...editingProgram, sessions: newSess}); }} className="text-xs text-secondary">▼</button>}
                         </div>
                       </div>
                    </div>
                  );
                })}
-               <button onClick={() => {
-                  setProgramExoPicker(sIdx);
-               }} className="w-full py-3 border border-dashed border-border rounded-xl text-xs font-bold uppercase text-secondary">+ Exo</button>
+               <button onClick={() => setProgramExoPicker(sIdx)} className="w-full py-3 border border-dashed border-border rounded-xl text-xs font-bold uppercase text-secondary">+ Exo</button>
              </div>
-          </div>
+          </SectionCard>
         ))}
-        
-        <button onClick={() => {
-           setEditingProgram({
-             ...editingProgram,
-             sessions: [...editingProgram.sessions, { id: Date.now().toString(), name: "Nouvelle Séance", exos: [] }]
-           });
-        }} className="w-full py-4 bg-surface border border-border rounded-[2rem] text-sm font-black uppercase text-secondary">+ Ajouter Séance</button>
+        <button onClick={() => setEditingProgram({ ...editingProgram, sessions: [...editingProgram.sessions, { id: Date.now().toString(), name: "Nouvelle Séance", exos: [] }] })} className="w-full py-4 bg-surface border border-border rounded-[2rem] text-sm font-black uppercase text-secondary">+ Ajouter Séance</button>
       </div>
     );
   };
 
   const renderPrograms = () => (
-    <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
        <div className="flex justify-between items-center px-1">
           <h2 className="text-2xl font-black italic uppercase">Programmes</h2>
-          <button onClick={() => {
-             setEditingProgram({ id: Date.now().toString(), name: "Nouveau Programme", sessions: [] });
-             setView(View.EditorProgram);
-          }} className="px-4 py-2 bg-primary text-background rounded-full text-xs font-black uppercase shadow-lg shadow-primary/20 hover:scale-105 transition-transform">+ Créer</button>
+          <button onClick={() => { triggerHaptic('click'); setEditingProgram({ id: Date.now().toString(), name: "Nouveau Programme", sessions: [] }); setView(View.EditorProgram); }} className="px-4 py-2 bg-primary text-background rounded-full text-xs font-black uppercase shadow-lg shadow-primary/20 hover:scale-105 transition-transform">+ Créer</button>
        </div>
-
        <div className="grid gap-6">
           {programs.map(prog => (
-             <div key={prog.id} className="bg-surface border border-border rounded-[2.5rem] p-6 shadow-lg">
+             <SectionCard key={prog.id} className="p-6">
                 <div className="flex justify-between items-start mb-6">
                    <h3 className="text-lg font-black italic uppercase leading-tight max-w-[70%]">{prog.name}</h3>
                    <div className="flex gap-1">
-                      <button onClick={() => {
-                         // FIX: Deep copy to avoid mutating the original object before saving
-                         setEditingProgram(JSON.parse(JSON.stringify(prog)));
-                         setView(View.EditorProgram);
-                      }} className="p-2 text-secondary hover:text-white bg-surface2 rounded-xl transition-colors"><Icons.Settings /></button>
-                      <button onClick={() => setPendingConfirm({
-                          message: "Supprimer le programme ?",
-                          subMessage: "Cette action est irréversible.",
-                          variant: 'danger',
-                          onConfirm: () => setPrograms(prev => prev.filter(p => p.id !== prog.id))
-                      })} className="p-2 text-danger bg-danger/10 rounded-xl hover:bg-danger/20 transition-colors">✕</button>
+                      <button onClick={() => { triggerHaptic('click'); setEditingProgram(JSON.parse(JSON.stringify(prog))); setView(View.EditorProgram); }} className="p-2 text-secondary hover:text-white bg-surface2 rounded-xl transition-colors"><Icons.Settings /></button>
+                      <button onClick={() => { triggerHaptic('error'); setPendingConfirm({ message: "Supprimer le programme ?", subMessage: "Irréversible.", variant: 'danger', onConfirm: () => setPrograms(prev => prev.filter(p => p.id !== prog.id)) })}} className="p-2 text-danger bg-danger/10 rounded-xl hover:bg-danger/20 transition-colors">✕</button>
                    </div>
                 </div>
-                
                 <div className="space-y-3">
-                   {prog.sessions.map(sess => (
-                      <button key={sess.id} onClick={() => setPreviewSession({ programName: prog.name, session: sess })} className="w-full text-left bg-surface2/30 hover:bg-surface2 p-4 rounded-2xl border border-transparent hover:border-primary/30 transition-all group">
+                   {(prog.sessions || []).map(sess => (
+                      <button key={sess.id} onClick={() => { triggerHaptic('click'); setPreviewSession({ programName: prog.name, session: sess }); }} className="w-full text-left bg-surface2/30 hover:bg-surface2 p-4 rounded-2xl border border-transparent hover:border-primary/30 transition-all group">
                          <div className="flex justify-between items-center">
                             <span className="font-bold text-sm">{sess.name}</span>
                             <span className="text-[10px] font-black uppercase text-primary opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">Démarrer ➔</span>
                          </div>
                          <div className="text-[10px] text-secondary mt-1 flex gap-2">
-                            <span>{sess.exos.length} Mouvements</span>
+                            <span>{(sess.exos || []).length} Mouvements</span>
                             <span>•</span>
-                            <span>{sess.exos.reduce((acc, ex) => acc + ex.sets, 0)} Séries</span>
+                            <span>{(sess.exos || []).reduce((acc, ex) => acc + ex.sets, 0)} Séries</span>
                          </div>
                       </button>
                    ))}
-                   {prog.sessions.length === 0 && <div className="text-center text-[10px] text-secondary/50 italic py-2">Aucune séance configurée</div>}
+                   {(prog.sessions || []).length === 0 && <div className="text-center text-[10px] text-secondary/50 italic py-2">Aucune séance</div>}
                 </div>
-             </div>
+             </SectionCard>
           ))}
        </div>
     </div>
   );
 
   const renderLibrary = () => {
-    // ENHANCED SEARCH: Check Name, Muscle, Type, and ID
     const filteredLib = library.filter(l => {
+        if (l.isArchived) return false;
         const q = libraryFilter.toLowerCase();
-        return l.name.toLowerCase().includes(q) || 
-               l.muscle.toLowerCase().includes(q) ||
-               l.type.toLowerCase().includes(q) ||
-               l.id.toLowerCase().includes(q);
-    }).sort((a,b) => {
-        // FIX: Treat undefined and false as identical for sorting
-        const favA = !!a.isFavorite;
-        const favB = !!b.isFavorite;
-        if (favA === favB) return a.name.localeCompare(b.name);
-        return favA ? -1 : 1;
-    });
+        return (l.name || '').toLowerCase().includes(q) || (l.muscle || '').toLowerCase().includes(q) || (l.type || '').toLowerCase().includes(q);
+    }).sort((a,b) => (a.isFavorite === b.isFavorite) ? (a.name || '').localeCompare(b.name || '') : (a.isFavorite ? -1 : 1));
 
     return (
-     <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+     <div className="space-y-6 animate-in fade-in duration-500">
         <div className="flex justify-between items-center px-1">
           <h2 className="text-2xl font-black italic uppercase">Bibliothèque</h2>
-          <button onClick={() => setEditingExercise({ id: '', name: '', type: 'Isolation', muscle: 'Pectoraux', equipment: 'BB', tips: {} })} className="px-4 py-2 bg-primary text-background rounded-full text-xs font-black uppercase">+ Exo</button>
+          <button onClick={() => { triggerHaptic('click'); setEditingExercise({ id: 0, name: '', type: 'Isolation', muscle: 'Pectoraux', equipment: 'BB', tips: {} }); }} className="px-4 py-2 bg-primary text-background rounded-full text-xs font-black uppercase">+ Exo</button>
         </div>
-        
-        <input 
-           value={libraryFilter}
-           onChange={e => setLibraryFilter(e.target.value)}
-           placeholder="Rechercher (Nom, Muscle, Cardio...)"
-           className="w-full bg-surface border border-border p-3 rounded-2xl outline-none focus:border-primary text-sm"
-        />
-        
+        <input value={libraryFilter} onChange={e => setLibraryFilter(e.target.value)} placeholder="Rechercher (Nom, Muscle...)" className="w-full bg-surface border border-border p-3 rounded-2xl outline-none focus:border-primary text-sm" />
         <div className="grid gap-3">
            {filteredLib.map(l => (
              <div key={l.id} className="bg-surface border border-border p-4 rounded-2xl flex justify-between items-center">
                 <div className="flex-1">
                    <div className="flex items-center gap-2">
-                       <button onClick={(e) => toggleFavorite(l.id, e)} className={`transition-transform active:scale-125 ${l.isFavorite ? 'text-gold' : 'text-secondary/30'}`}>
-                           {l.isFavorite ? <Icons.Star /> : <Icons.StarOutline />}
-                       </button>
+                       <button onClick={(e) => toggleFavorite(l.id, e)} className={`transition-transform active:scale-125 ${l.isFavorite ? 'text-gold' : 'text-secondary/30'}`}>{l.isFavorite ? <Icons.Star /> : <Icons.StarOutline />}</button>
                        <div className="font-bold">{l.name}</div>
                    </div>
                    <div className="text-[10px] text-secondary uppercase mt-1 flex gap-2 pl-7">
@@ -1138,7 +891,7 @@ export default function App() {
                    </div>
                 </div>
                 <div className="flex gap-2">
-                   <button onClick={() => setEditingExercise(l)} className="text-secondary p-2"><Icons.Settings /></button>
+                   <button onClick={() => { triggerHaptic('click'); setEditingExercise(l); }} className="text-secondary p-2"><Icons.Settings /></button>
                    <button onClick={() => handleDeleteExo(l.id)} className="text-danger p-2">✕</button>
                 </div>
              </div>
@@ -1149,93 +902,78 @@ export default function App() {
   };
 
   const renderSettings = () => (
-     <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+     <div className="space-y-6 animate-in fade-in duration-500">
         <h2 className="text-2xl font-black italic uppercase px-1">Paramètres</h2>
-        
-        <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg">
-           <h3 className="text-sm font-black uppercase text-secondary mb-4">Thème</h3>
+        <SectionCard className="p-6">
+           <h3 className="text-sm font-bold uppercase tracking-wider text-secondary mb-4">Thème</h3>
            <div className="flex gap-3 justify-center flex-wrap">
              {(Object.keys(THEMES) as AccentColor[]).map(c => (
-                <button 
-                  key={c}
-                  onClick={() => setAccentColor(c)}
-                  className={`w-10 h-10 rounded-full border-2 transition-all ${accentColor === c ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-50'}`}
-                  style={{ backgroundColor: THEMES[c].primary }}
-                />
+                <button key={c} onClick={() => { triggerHaptic('click'); setAccentColor(c); }} className={`w-10 h-10 rounded-full border-2 transition-all ${accentColor === c ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-50'}`} style={{ backgroundColor: THEMES[c].primary }} />
              ))}
            </div>
-        </div>
+        </SectionCard>
 
-        <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg space-y-4">
-           <h3 className="text-sm font-black uppercase text-secondary">Sauvegarde (JSON)</h3>
+        <SectionCard className="p-6 space-y-4">
+           <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Données (JSON)</h3>
            <div className="grid grid-cols-2 gap-3">
-               <button onClick={() => downloadFile(JSON.stringify({ history, programs, library }, null, 2), `backup_iron_${new Date().toISOString().split('T')[0]}.json`)} className="py-4 bg-surface2 rounded-2xl text-[10px] font-bold uppercase flex flex-col items-center justify-center gap-2 hover:bg-surface2/80 transition-colors">
-                  <span className="text-primary scale-125"><Icons.Download /></span>
-                  <span>Exporter</span>
+               <button onClick={() => {
+                   triggerHaptic('click');
+                   const exportData = { meta: { app: "IronTracker", version: "V1.0", date: new Date().toISOString() }, library: library, programs: programs, history: history };
+                   downloadFile(JSON.stringify(exportData, null, 2), `backup_iron_${new Date().toISOString().split('T')[0]}.json`);
+               }} className="py-4 bg-surface2 rounded-2xl text-[10px] font-bold uppercase flex flex-col items-center justify-center gap-2 hover:bg-surface2/80 transition-colors">
+                  <span className="text-primary scale-125"><Icons.Download /></span> <span>Exporter</span>
                </button>
                <label className="py-4 bg-surface2 rounded-2xl text-[10px] font-bold uppercase flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-surface2/80 transition-colors">
-                  <span className="text-primary scale-125"><Icons.Upload /></span>
-                  <span>Importer</span>
+                  <span className="text-primary scale-125"><Icons.Upload /></span> <span>Importer</span>
                   <input type="file" className="hidden" accept=".json" onChange={e => {
                       const file = e.target.files?.[0];
                       if (file) {
+                         triggerHaptic('success');
                          const reader = new FileReader();
                          reader.onload = (ev) => {
                             try {
                                const data = JSON.parse(ev.target?.result as string);
-                               if (data.history) setHistory(data.history);
+                               const newHistory = data.history || data;
+                               if (newHistory && Array.isArray(newHistory)) setHistory(newHistory);
                                if (data.programs) setPrograms(data.programs);
                                if (data.library) setLibrary(data.library);
                                alert("Import réussi !");
-                            } catch (err) {
-                               alert("Fichier invalide");
-                            }
+                            } catch (err) { alert("Fichier invalide"); }
                          };
                          reader.readAsText(file);
                       }
                   }} />
                </label>
            </div>
-        </div>
+        </SectionCard>
 
-        <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg space-y-4">
-           <h3 className="text-sm font-black uppercase text-secondary">Exports Analytiques</h3>
-           <button onClick={() => {
-               const csv = generateCSV(history, library);
-               downloadFile(csv, `irontracker_export_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
-           }} className="w-full py-4 bg-surface2 rounded-2xl text-xs font-bold uppercase flex items-center justify-center gap-3 hover:bg-surface2/80 transition-colors">
+        <SectionCard className="p-6 space-y-4">
+           <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Analytique</h3>
+           <button onClick={() => { triggerHaptic('click'); const csv = generateCSV(history, library); downloadFile(csv, `irontracker_export_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv'); }} className="w-full py-4 bg-surface2 rounded-2xl text-xs font-bold uppercase flex items-center justify-center gap-3 hover:bg-surface2/80 transition-colors">
               <span className="text-success scale-125"><Icons.Table /></span> Export CSV Complet (Excel)
            </button>
-        </div>
+        </SectionCard>
 
-        <div className="bg-danger/5 border border-danger/20 p-6 rounded-[2.5rem] shadow-lg space-y-4">
+        <div className="bg-danger/5 border border-danger/20 p-6 rounded-[2rem] shadow-lg space-y-4">
             <h3 className="text-sm font-black uppercase text-danger">Zone de Danger</h3>
-            <button onClick={() => setPendingConfirm({
-                message: "Réinitialiser TOUTES les données ?",
-                subMessage: "L'historique, les programmes et la bibliothèque seront effacés. Cette action est irréversible.",
-                variant: 'danger',
-                onConfirm: () => {
-                    localStorage.clear();
-                    // Clear React state immediately
-                    setHistory([]);
-                    setPrograms(DEFAULT_PROGRAMS); // FIX: Restore default programs
-                    setLibrary(DEFAULT_LIBRARY);
-                    setSession(null);
-                    // Force reload after small delay
-                    setTimeout(() => window.location.reload(), 100);
-                }
-            })} className="w-full py-3 bg-danger/10 text-danger rounded-xl text-xs font-bold uppercase border border-danger/20">
+            <button onClick={() => { triggerHaptic('error'); setPendingConfirm({ message: "Réinitialiser TOUTES les données ?", subMessage: "Irréversible.", variant: 'danger', onConfirm: () => { 
+                // Soft Reset: Clear storage and reset state manually to defaults
+                // This triggers the useEffect to save these defaults cleanly without race conditions
+                localStorage.clear();
+                setHistory([]);
+                setPrograms(DEFAULT_PROGRAMS);
+                setLibrary(DEFAULT_LIBRARY);
+                setSession(null);
+                setAccentColor('blue');
+                setView(View.Dashboard);
+                triggerHaptic('success');
+            }})}} className="w-full py-3 bg-danger/10 text-danger rounded-xl text-xs font-bold uppercase border border-danger/20">
                 Tout effacer (Reset Factory)
             </button>
         </div>
         
         {installPrompt && (
-           <button onClick={() => {
-              installPrompt.prompt();
-              installPrompt.userChoice.then(res => {
-                 if (res.outcome === 'accepted') setInstallPrompt(null);
-              });
-           }} className="w-full py-4 bg-primary text-background rounded-[2rem] text-sm font-black uppercase shadow-xl animate-pulse">
+           <button onClick={() => { installPrompt.prompt(); installPrompt.userChoice.then(res => { if (res.outcome === 'accepted') setInstallPrompt(null); }); }} className="w-full py-4 bg-primary text-background rounded-[2rem] text-sm font-black uppercase shadow-xl animate-pulse">
               Installer l'Application
            </button>
         )}
@@ -1243,20 +981,18 @@ export default function App() {
   );
   
   const renderRecords = () => (
-      <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+      <div className="space-y-6 animate-in fade-in duration-500">
          <div className="flex justify-between items-center px-1">
             <h2 className="text-2xl font-black italic uppercase">Records</h2>
-            <button onClick={() => setView(View.OneRMCalculator)} className="text-[10px] font-black uppercase bg-surface2 px-3 py-1.5 rounded-full">Calculateur 1RM</button>
+            <button onClick={() => { triggerHaptic('click'); setView(View.OneRMCalculator); }} className="text-[10px] font-bold uppercase tracking-wider bg-surface2 px-3 py-1.5 rounded-full">Calculateur 1RM</button>
          </div>
-
          <div className="grid gap-4">
             {MUSCLE_ORDER.filter(m => m !== 'Cardio').map(muscle => {
-               const exos = library.filter(l => l.muscle === muscle);
+               const exos = library.filter(l => l.muscle === muscle && !l.isArchived);
                const stats = exos.map(e => ({ name: e.name, ...getExerciseStats(e.id, history, e.type) })).filter(s => s.pr > 0).sort((a,b) => b.pr - a.pr);
                if (stats.length === 0) return null;
-               
                return (
-                  <div key={muscle} className="bg-surface border border-border p-5 rounded-[2rem]">
+                  <SectionCard key={muscle} className="p-5">
                      <h3 className="text-sm font-black uppercase text-primary mb-3">{muscle}</h3>
                      <div className="space-y-3">
                         {stats.map(s => (
@@ -1269,7 +1005,7 @@ export default function App() {
                            </div>
                         ))}
                      </div>
-                  </div>
+                  </SectionCard>
                );
             })}
          </div>
@@ -1277,130 +1013,101 @@ export default function App() {
   );
 
   const renderAnalytics = () => (
-      <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+      <div className="space-y-6 animate-in fade-in duration-500">
         <h2 className="text-2xl font-black italic uppercase px-1">Progrès</h2>
-
-        {/* Global Controls */}
-        <div className="bg-surface border border-border p-2 rounded-[2rem] flex p-1">
-             {['7d','30d','90d','1y','all'].map(p => (
-                 <button key={p} onClick={() => setAnalyticsPeriod(p as any)} className={`flex-1 py-2 rounded-full text-[10px] font-black uppercase transition-all ${analyticsPeriod === p ? 'bg-primary text-background shadow-lg' : 'text-secondary hover:text-white'}`}>
-                    {p}
-                 </button>
-             ))}
-        </div>
-
-        {/* PROGRESSION CHART */}
-        <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg">
-           <div className="flex justify-between items-center mb-6">
-              <h3 className="text-sm font-black uppercase text-secondary">Progression</h3>
-              <select value={analyticsExo} onChange={e => setAnalyticsExo(e.target.value)} className="bg-surface2 text-xs font-bold px-3 py-1.5 rounded-full outline-none max-w-[150px]">
+        
+        <SectionCard className="p-6">
+           <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Progression</h3>
+              <select value={analyticsExo} onChange={e => { triggerHaptic('click'); setAnalyticsExo(e.target.value); }} className="bg-surface2 text-xs font-bold px-3 py-1.5 rounded-full outline-none max-w-[200px]">
                   <option value="">Sélectionner Exercice</option>
-                  {library.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  {library.filter(l => !l.isArchived).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
            </div>
            
-           <div className="h-64 w-full">
-              {progData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                     <AreaChart data={progData}>
-                        <defs>
-                           <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                           </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-                        <XAxis dataKey="date" tick={{fontSize: 10, fill: '#8b949e'}} axisLine={false} tickLine={false} dy={10} />
-                        <YAxis tick={{fontSize: 10, fill: '#8b949e'}} axisLine={false} tickLine={false} dx={-10} domain={['auto', 'auto']} />
-                        <Tooltip 
-                           contentStyle={{backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '12px'}} 
-                           itemStyle={{color: '#fff', fontSize: '12px', fontWeight: 'bold'}}
-                           labelStyle={{color: '#8b949e', fontSize: '10px', marginBottom: '4px'}}
-                        />
-                        <Area type="monotone" dataKey="value" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
-                     </AreaChart>
-                  </ResponsiveContainer>
-              ) : (
-                  <div className="h-full flex items-center justify-center text-secondary text-xs italic opacity-50">
-                      Veuillez sélectionner un exercice ci-dessus pour voir l'historique
-                  </div>
-              )}
+           <div className="flex justify-end mb-4">
+              <div className="flex bg-surface2 rounded-full p-0.5">
+                  {['max', 'volume', 'tonnage'].map(m => (
+                     <button key={m} onClick={() => { triggerHaptic('tick'); setAnalyticsMetric(m as any); }} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${analyticsMetric === m ? 'bg-primary text-background' : 'text-secondary hover:text-white'}`}>{m}</button>
+                  ))}
+               </div>
            </div>
-           
-           <div className="flex justify-center gap-4 mt-4">
-              {['max', 'volume', 'tonnage'].map(m => (
-                 <button key={m} onClick={() => setAnalyticsMetric(m as any)} className={`text-[9px] font-black uppercase px-3 py-1 rounded-full border transition-all ${analyticsMetric === m ? 'bg-primary/20 border-primary text-primary' : 'border-transparent text-secondary hover:text-white'}`}>
-                    {m}
-                 </button>
-              ))}
-           </div>
-        </div>
 
-        {/* VOLUME SEMAINE */}
-        <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg">
+           <div className="flex gap-4 h-64">
+              {/* Vertical Time Selector (Left of Axis) */}
+              <div className="flex flex-col justify-between py-2 bg-surface2/30 rounded-full px-1">
+                 {['7d','30d','90d','1y','all'].map(p => (
+                     <button key={p} onClick={() => { triggerHaptic('tick'); setAnalyticsPeriod(p as any); }} className={`w-8 h-8 flex items-center justify-center rounded-full text-[9px] font-bold uppercase transition-all ${analyticsPeriod === p ? 'bg-primary text-background shadow-lg' : 'text-secondary hover:text-white'}`}>
+                        {p.replace('all', '∞')}
+                     </button>
+                 ))}
+              </div>
+
+              <div className="flex-1 w-full">
+                  {progData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                         <AreaChart data={progData}>
+                            <defs><linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/><stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/></linearGradient></defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                            <XAxis dataKey="date" tick={{fontSize: 10, fill: '#8b949e'}} axisLine={false} tickLine={false} dy={10} />
+                            <YAxis tick={{fontSize: 10, fill: '#8b949e'}} axisLine={false} tickLine={false} dx={-10} domain={['auto', 'auto']} />
+                            <Tooltip contentStyle={{backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '12px'}} itemStyle={{color: '#fff', fontSize: '12px', fontWeight: 'bold'}} labelStyle={{color: '#8b949e', fontSize: '10px', marginBottom: '4px'}} />
+                            <Area type="monotone" dataKey="value" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
+                         </AreaChart>
+                      </ResponsiveContainer>
+                  ) : <div className="h-full flex items-center justify-center text-secondary text-xs italic opacity-50 border border-dashed border-border/50 rounded-xl">Veuillez sélectionner un exercice</div>}
+              </div>
+           </div>
+        </SectionCard>
+
+        <SectionCard className="p-6">
             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-black uppercase text-secondary">Volume Hebdo</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Volume Hebdo</h3>
                 <div className="flex bg-surface2 rounded-full p-0.5">
-                     <button onClick={() => setVolumeChartMode('muscle')} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${volumeChartMode === 'muscle' ? 'bg-primary text-background' : 'text-secondary'}`}>Muscles</button>
-                     <button onClick={() => setVolumeChartMode('type')} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${volumeChartMode === 'type' ? 'bg-primary text-background' : 'text-secondary'}`}>Types</button>
+                     <button onClick={() => { triggerHaptic('tick'); setVolumeChartMode('muscle'); }} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${volumeChartMode === 'muscle' ? 'bg-primary text-background' : 'text-secondary'}`}>Muscles</button>
+                     <button onClick={() => { triggerHaptic('tick'); setVolumeChartMode('type'); }} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${volumeChartMode === 'type' ? 'bg-primary text-background' : 'text-secondary'}`}>Types</button>
                 </div>
             </div>
-            
             <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={volumeData} layout="vertical" margin={{left: 20}}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.1)" />
                       <XAxis type="number" hide />
                       <YAxis dataKey="name" type="category" tick={{fontSize: 9, fill: '#8b949e'}} width={70} axisLine={false} tickLine={false} />
-                      <Tooltip 
-                        cursor={{fill: 'rgba(255,255,255,0.05)'}} 
-                        contentStyle={{backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px'}} 
-                        itemStyle={{ color: '#fff' }}
-                      />
+                      <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px'}} itemStyle={{ color: '#fff' }} />
                       <Bar dataKey="sets" radius={[0, 4, 4, 0]} barSize={16}>
-                        {volumeData.map((entry, index) => (
-                           <Cell key={`cell-${index}`} fill={entry.color || MUSCLE_COLORS[entry.name] || '#58a6ff'} />
-                        ))}
+                        {volumeData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color || MUSCLE_COLORS[entry.name] || '#58a6ff'} />)}
                         <LabelList dataKey="sets" position="right" fill="#e6edf3" fontSize={10} formatter={(v: number) => v > 0 ? v : ''} />
                       </Bar>
                    </BarChart>
                 </ResponsiveContainer>
             </div>
-            
             <div className="flex justify-end mt-4">
                 <div className="flex items-center gap-2 text-[10px] font-bold bg-surface2 px-2 py-1 rounded-full">
-                    <button onClick={() => setCurrentWeekOffset(prev => prev - 1)} className="text-secondary hover:text-white px-2">◀</button>
-                    <button onClick={() => setCurrentWeekOffset(0)} className="text-primary hover:text-white px-1">RST</button>
+                    <button onClick={() => { triggerHaptic('click'); setCurrentWeekOffset(prev => prev - 1); }} className="text-secondary hover:text-white px-2">◀</button>
+                    <button onClick={() => { triggerHaptic('click'); setCurrentWeekOffset(0); }} className="text-primary hover:text-white px-1">RST</button>
                     <span className="mx-1 text-secondary/50">|</span>
                     <span>{weekStart.toLocaleDateString()}</span>
-                    <button onClick={() => setCurrentWeekOffset(prev => prev + 1)} className="text-secondary hover:text-white px-2">▶</button>
+                    <button onClick={() => { triggerHaptic('click'); setCurrentWeekOffset(prev => prev + 1); }} className="text-secondary hover:text-white px-2">▶</button>
                 </div>
             </div>
-            <div className="text-center text-[9px] text-secondary mt-2 font-mono">
-               {volumeChartMode === 'muscle' ? 'Séries EFFECTIVES (RIR ≤ 4) uniquement' : 'Répartition par Type (Toutes séries validées)'}
-            </div>
-        </div>
+        </SectionCard>
 
-        {/* SBD RATIO & TRACKING */}
-        <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg">
+        <SectionCard className="p-6">
             <div className="flex justify-between items-center mb-6">
-               <h3 className="text-sm font-black uppercase text-secondary">SBD Tracker</h3>
+               <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">SBD Tracker</h3>
                <div className="flex bg-surface2 rounded-full p-0.5">
-                  <button onClick={() => setSbdViewMode('tracking')} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${sbdViewMode === 'tracking' ? 'bg-primary text-background' : 'text-secondary'}`}>Tracking</button>
-                  <button onClick={() => setSbdViewMode('ratio')} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${sbdViewMode === 'ratio' ? 'bg-primary text-background' : 'text-secondary'}`}>Niveaux</button>
+                  <button onClick={() => { triggerHaptic('tick'); setSbdViewMode('tracking'); }} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${sbdViewMode === 'tracking' ? 'bg-primary text-background' : 'text-secondary'}`}>Tracking</button>
+                  <button onClick={() => { triggerHaptic('tick'); setSbdViewMode('ratio'); }} className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase transition-all ${sbdViewMode === 'ratio' ? 'bg-primary text-background' : 'text-secondary'}`}>Niveaux</button>
                </div>
             </div>
-            
             {sbdViewMode === 'ratio' && (
                 <div className="flex gap-1 mb-4 overflow-x-auto no-scrollbar pb-1">
                     {(['global', 'squat', 'bench', 'deadlift'] as const).map(cat => (
-                         <button key={cat} onClick={() => setSbdRatioCategory(cat)} className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase whitespace-nowrap transition-all ${sbdRatioCategory === cat ? 'bg-primary/20 border-primary text-primary' : 'border-transparent text-secondary hover:text-white'}`}>
-                             {cat}
-                         </button>
+                         <button key={cat} onClick={() => { triggerHaptic('tick'); setSbdRatioCategory(cat); }} className={`px-3 py-1.5 rounded-lg border text-[9px] font-bold uppercase whitespace-nowrap transition-all ${sbdRatioCategory === cat ? 'bg-primary/20 border-primary text-primary' : 'border-transparent text-secondary hover:text-white'}`}>{cat}</button>
                     ))}
                 </div>
             )}
-
             {sbdData.length > 0 ? (
                <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1408,80 +1115,36 @@ export default function App() {
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                         <XAxis dataKey="date" tick={{fontSize: 10, fill: '#8b949e'}} axisLine={false} tickLine={false} dy={10} />
                         {sbdViewMode === 'ratio' ? (
-                            <YAxis 
-                                yAxisId="left" 
-                                tick={{fontSize: 10, fill: '#8b949e'}}
-                                tickFormatter={(val) => Number(val).toFixed(1)}
-                                axisLine={false} 
-                                tickLine={false} 
-                                dx={-10} 
-                                domain={[0, (dataMax: number) => {
-                                    const catMax = RATIO_ZONES[sbdRatioCategory][0].max; // Ensure at least lowest zone is visible
-                                    return parseFloat((Math.max(dataMax, catMax) * 1.2).toFixed(2));
-                                }]}
-                            />
+                            <YAxis yAxisId="left" tick={{fontSize: 10, fill: '#8b949e'}} tickFormatter={(val) => Number(val).toFixed(1)} axisLine={false} tickLine={false} dx={-10} domain={[0, (dataMax: number) => parseFloat((Math.max(dataMax, RATIO_ZONES[sbdRatioCategory][0].max) * 1.2).toFixed(2))]} />
                         ) : (
                             <YAxis yAxisId="left" tick={{fontSize: 10, fill: '#8b949e'}} axisLine={false} tickLine={false} dx={-10} domain={['auto', 'auto']} />
                         )}
-                        <YAxis yAxisId="right" orientation="right" hide />
-                        <Tooltip 
-                            contentStyle={{backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '12px'}} 
-                            labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label}
-                        />
-                        
+                        <Tooltip contentStyle={{backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '12px'}} labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label} />
                         {sbdViewMode === 'tracking' ? (
                            <>
                               <Area yAxisId="left" type="monotone" dataKey="sbd" name="Total SBD" stroke="var(--primary)" fill="url(#colorVal)" strokeWidth={3} />
-                              <Line yAxisId="right" type="monotone" dataKey="bw" name="Poids Corps" stroke="#ff7b72" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                              <Line yAxisId="left" type="monotone" dataKey="bw" name="Poids Corps" stroke="#ff7b72" strokeWidth={2} dot={false} strokeDasharray="5 5" />
                            </>
                         ) : (
                            <>
                              {RATIO_ZONES[sbdRatioCategory].map((level, i) => (
-                                 <ReferenceArea 
-                                    key={i} 
-                                    yAxisId="left" 
-                                    y1={i === 0 ? 0 : RATIO_ZONES[sbdRatioCategory][i-1].max} 
-                                    y2={level.max} 
-                                    fill={level.color} 
-                                    fillOpacity={0.05} 
-                                    label={{
-                                        value: `${level.label} (≤${level.max})`,
-                                        position: 'insideTopRight',
-                                        fill: '#8b949e',
-                                        fontSize: 10,
-                                        opacity: 0.7
-                                    }}
-                                 />
+                                 <ReferenceArea key={i} yAxisId="left" y1={i === 0 ? 0 : RATIO_ZONES[sbdRatioCategory][i-1].max} y2={level.max} fill={level.color} fillOpacity={0.05} label={{ value: `${level.label} (≤${level.max})`, position: 'insideTopRight', fill: '#8b949e', fontSize: 10, opacity: 0.7 }} />
                              ))}
-                             <Line 
-                                yAxisId="left" 
-                                type="monotone" 
-                                dataKey={sbdRatioCategory === 'global' ? 'ratioGlobal' : sbdRatioCategory === 'squat' ? 'ratioSquat' : sbdRatioCategory === 'bench' ? 'ratioBench' : 'ratioDeadlift'} 
-                                name={`Ratio ${sbdRatioCategory.toUpperCase()}`} 
-                                stroke="#d29922" 
-                                strokeWidth={3} 
-                                dot={{r: 4, fill: '#d29922'}} 
-                                connectNulls
-                             />
+                             <Line yAxisId="left" type="monotone" dataKey={sbdRatioCategory === 'global' ? 'ratioGlobal' : sbdRatioCategory === 'squat' ? 'ratioSquat' : sbdRatioCategory === 'bench' ? 'ratioBench' : 'ratioDeadlift'} name={`Ratio ${sbdRatioCategory.toUpperCase()}`} stroke="#d29922" strokeWidth={3} dot={{r: 4, fill: '#d29922'}} connectNulls />
                            </>
                         )}
                      </ComposedChart>
                   </ResponsiveContainer>
                </div>
-            ) : (
-               <div className="h-64 flex items-center justify-center text-secondary text-xs italic">
-                  Pas assez de données (Squat + Bench + Deadlift requis)
-               </div>
-            )}
-        </div>
+            ) : <div className="h-64 flex items-center justify-center text-secondary text-xs italic">Pas assez de données SBD</div>}
+        </SectionCard>
       </div>
     );
 
-    const renderOneRMCalc = () => (
-      <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+  const renderOneRMCalc = () => (
+      <div className="space-y-6 animate-in fade-in duration-500">
         <h2 className="text-2xl font-black italic uppercase px-1">Calculateur 1RM</h2>
-        
-        <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg space-y-4">
+        <SectionCard className="p-6 space-y-4">
            <div className="grid grid-cols-2 gap-4">
              <div className="space-y-1">
                <label className="text-[10px] uppercase text-secondary">Poids (kg)</label>
@@ -1492,12 +1155,10 @@ export default function App() {
                <input type="number" value={oneRMReps} onChange={e => setOneRMReps(e.target.value)} className="w-full bg-background border border-border p-3 rounded-xl text-lg font-mono font-bold text-center outline-none focus:border-primary" />
              </div>
            </div>
-           
            <div className="pt-4 border-t border-border/50 text-center">
-             <div className="text-[10px] font-black uppercase text-secondary mb-2">Estimation 1RM (Wathen)</div>
+             <div className="text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">Estimation 1RM (Wathen)</div>
              <div className="text-4xl font-black italic text-primary">{est1RM} <span className="text-lg text-foreground not-italic">kg</span></div>
            </div>
-
            <div className="grid grid-cols-4 gap-2 pt-4">
               {[0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60].map(pct => (
                  <div key={pct} className="bg-surface2/30 p-2 rounded-xl text-center">
@@ -1506,73 +1167,45 @@ export default function App() {
                  </div>
               ))}
            </div>
-        </div>
+        </SectionCard>
 
-        <div className="bg-surface border border-border p-6 rounded-[2.5rem] shadow-lg space-y-6">
-           <h3 className="text-sm font-black uppercase text-secondary">Convertisseur</h3>
-           
+        <SectionCard className="p-6 space-y-6">
+           <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Convertisseur</h3>
            <div className="space-y-2">
               <label className="text-[10px] uppercase text-secondary">Barre (Total) ➔ Haltères (Par main)</label>
               <div className="flex gap-2">
-                 <input type="number" value={convBB} onChange={e => {
-                    setConvBB(e.target.value);
-                    setConvDB(e.target.value ? Math.round((parseFloat(e.target.value) * 0.80) / 2).toString() : ""); // NEW RATIO 0.80
-                 }} placeholder="Barre..." className="w-full bg-background border border-border p-3 rounded-xl text-center font-mono outline-none" />
+                 <input type="number" value={convBB} onChange={e => { setConvBB(e.target.value); setConvDB(e.target.value ? Math.round((parseFloat(e.target.value) * 0.80) / 2).toString() : ""); }} placeholder="Barre..." className="w-full bg-background border border-border p-3 rounded-xl text-center font-mono outline-none" />
                  <div className="flex items-center text-secondary">➔</div>
                  <div className="w-full bg-surface2 p-3 rounded-xl text-center font-mono font-bold text-primary">{convDB}</div>
               </div>
            </div>
-
            <div className="space-y-2">
               <label className="text-[10px] uppercase text-secondary">Haltères (Par main) ➔ Barre (Total)</label>
               <div className="flex gap-2">
-                 <input type="number" value={convDB} onChange={e => {
-                    setConvDB(e.target.value);
-                    setConvBB(e.target.value ? Math.round((parseFloat(e.target.value) * 2) / 0.80).toString() : ""); // NEW RATIO 0.80
-                 }} placeholder="Haltère..." className="w-full bg-background border border-border p-3 rounded-xl text-center font-mono outline-none" />
+                 <input type="number" value={convDB} onChange={e => { setConvDB(e.target.value); setConvBB(e.target.value ? Math.round((parseFloat(e.target.value) * 2) / 0.80).toString() : ""); }} placeholder="Haltère..." className="w-full bg-background border border-border p-3 rounded-xl text-center font-mono outline-none" />
                  <div className="flex items-center text-secondary">➔</div>
                  <div className="w-full bg-surface2 p-3 rounded-xl text-center font-mono font-bold text-primary">{convBB}</div>
               </div>
            </div>
-        </div>
+        </SectionCard>
       </div>
     );
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 pb-safe" style={getAccentStyle(accentColor)}>
-      {/* HEADER */}
-      <header className="fixed top-0 inset-x-0 z-30 bg-background/80 backdrop-blur-md border-b border-border h-16 flex items-center justify-between px-6">
-        <h1 className="text-2xl font-black italic tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary-glow cursor-pointer" onClick={() => setView(View.Dashboard)}>
-          IRON<span className="text-foreground">TRACKER</span>
-        </h1>
-        <div className="flex items-center gap-2">
-            {view === View.Workout && !restTarget && (
-                <button onClick={() => setRestTarget(Date.now() + 180000)} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-secondary active:scale-90 transition-transform">
-                    ⏱️
-                </button>
-            )}
-            {/* Show Header Timer only if Bottom Overlay is NOT showing */}
-            {restTime !== null && view !== View.Workout && (
-               <button onClick={() => setRestTarget(null)} className="px-3 py-1 bg-surface border border-primary/30 rounded-full flex items-center gap-2 animate-pulse hover:bg-surface2 transition-colors">
-                  <span className="w-2 h-2 rounded-full bg-primary" />
-                  <span className="font-mono font-bold text-primary text-xs">{Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}</span>
-               </button>
-            )}
-            {session && view === View.Workout && (
-                <div className="px-3 py-1 bg-surface2/50 text-white text-[10px] font-mono font-bold rounded-full border border-border">
-                    {timerString}
-                </div>
-            )}
-            {session && view !== View.Workout && (
-                <button onClick={() => setView(View.Workout)} className="px-3 py-1 bg-green-500/20 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/50 animate-pulse">
-                    En cours {timerString}
-                </button>
-            )}
+      <header className="fixed top-0 inset-x-0 z-30 bg-background/80 backdrop-blur-md border-b border-border h-16 flex justify-center px-4">
+        <div className="w-full max-w-lg flex items-center justify-between">
+            <h1 className="text-2xl font-black italic tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary-glow cursor-pointer" onClick={() => { triggerHaptic('click'); setView(View.Dashboard); }}>IRON<span className="text-foreground">TRACKER</span></h1>
+            <div className="flex items-center gap-2">
+                {view === View.Workout && !restTarget && <button onClick={() => { triggerHaptic('click'); setRestTarget(Date.now() + 180000); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-surface border border-border text-secondary active:scale-90 transition-transform">⏱️</button>}
+                {restTime !== null && view !== View.Workout && <button onClick={() => { triggerHaptic('click'); setRestTarget(null); }} className="px-3 py-1 bg-surface border border-primary/30 rounded-full flex items-center gap-2 animate-pulse hover:bg-surface2 transition-colors"><span className="w-2 h-2 rounded-full bg-primary" /><span className="font-mono font-bold text-primary text-xs">{Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}</span></button>}
+                {session && view === View.Workout && <div className="px-3 py-1 bg-surface2/50 text-white text-[10px] font-mono font-bold rounded-full border border-border">{timerString}</div>}
+                {session && view !== View.Workout && <button onClick={() => { triggerHaptic('click'); setView(View.Workout); }} className="px-3 py-1 bg-green-500/20 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/50 animate-pulse">En cours {timerString}</button>}
+            </div>
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      <main className="pt-20 px-4 max-w-lg mx-auto min-h-screen">
+      <main className="pt-20 px-4 max-w-lg mx-auto min-h-screen pb-32">
         {view === View.Dashboard && renderDashboard()}
         {view === View.Workout && renderWorkout()}
         {view === View.Analytics && renderAnalytics()}
@@ -1584,60 +1217,70 @@ export default function App() {
         {view === View.Records && renderRecords()}
       </main>
 
-      {/* BOTTOM NAV */}
       {view !== View.Workout && (
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-surface/90 backdrop-blur-xl border border-border/50 rounded-full px-6 py-3 shadow-2xl flex items-center gap-8">
-          <button onClick={() => setView(View.Dashboard)} className={`transition-colors ${view === View.Dashboard ? 'text-primary' : 'text-secondary hover:text-white'}`}><Icons.Dashboard /></button>
-          <button onClick={() => setView(View.Programs)} className={`transition-colors ${view === View.Programs ? 'text-primary' : 'text-secondary hover:text-white'}`}><Icons.Programs /></button>
-          <button onClick={() => setView(View.Library)} className={`transition-colors ${view === View.Library ? 'text-primary' : 'text-secondary hover:text-white'}`}><Icons.Note /></button>
-          <button onClick={() => setView(View.Settings)} className={`transition-colors ${view === View.Settings ? 'text-primary' : 'text-secondary hover:text-white'}`}><Icons.Settings /></button>
-        </nav>
+        <div className="fixed bottom-6 left-0 right-0 flex justify-center z-30 pointer-events-none">
+            <nav className="w-full max-w-lg mx-6 h-20 bg-surface/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] shadow-2xl shadow-black/50 flex items-center justify-around px-2 pointer-events-auto animate-in slide-in-from-bottom-10 duration-500">
+            {[
+                { id: View.Dashboard, icon: <Icons.Dashboard />, label: "Home" },
+                { id: View.Programs, icon: <Icons.Programs />, label: "Progs" },
+                { id: View.Library, icon: <Icons.Note />, label: "Biblio" },
+                { id: View.Settings, icon: <Icons.Settings />, label: "Config" },
+            ].map((item) => {
+                const isActive = view === item.id;
+                return (
+                <button
+                    key={item.id}
+                    onClick={() => { triggerHaptic('click'); setView(item.id); }}
+                    className={`relative flex flex-col items-center justify-center w-16 h-16 rounded-2xl transition-all duration-300 group ${isActive ? 'text-primary' : 'text-secondary hover:text-white'}`}
+                >
+                    <span className={`transition-transform duration-300 ${isActive ? 'scale-110 -translate-y-1' : 'group-active:scale-90'}`}>
+                    {item.icon}
+                    </span>
+                    {isActive && (
+                    <span className="absolute bottom-3 w-1 h-1 bg-primary rounded-full shadow-[0_0_8px_2px_var(--primary)] animate-in zoom-in duration-300" />
+                    )}
+                </button>
+                )
+            })}
+            </nav>
+        </div>
       )}
 
-      {/* --- REST TIMER FULLSCREEN OVERLAY (Optional but requested logic implicit) --- */}
       {restTime !== null && view === View.Workout && (
-          <div className="fixed inset-x-0 bottom-0 z-40 p-4 pointer-events-none">
-             <div className={`bg-surface/90 backdrop-blur border ${showGo ? 'border-success bg-success/20' : 'border-border'} p-4 rounded-3xl shadow-2xl pointer-events-auto flex justify-between items-center animate-in slide-in-from-bottom duration-300 transition-colors`}>
+          <div className="fixed bottom-0 left-0 right-0 z-40 p-4 flex justify-center pointer-events-none">
+             <div className={`w-full max-w-lg bg-surface/90 backdrop-blur border ${showGo ? 'border-success bg-success/20' : 'border-border'} p-4 rounded-[2rem] shadow-2xl pointer-events-auto flex justify-between items-center animate-in slide-in-from-bottom duration-300 transition-colors`}>
                 <div className="flex flex-col">
                    <span className="text-[10px] font-black uppercase text-secondary">Repos</span>
-                   {showGo ? (
-                       <span className="text-3xl font-black italic text-success animate-pulse">GO !</span>
-                   ) : (
-                       <span className="text-3xl font-mono font-bold text-primary">{Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}</span>
-                   )}
+                   {showGo ? <span className="text-3xl font-black italic text-success animate-pulse">GO !</span> : <span className="text-3xl font-mono font-bold text-primary">{Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}</span>}
                 </div>
                 {!showGo && (
                     <div className="flex gap-2">
-                       <button onClick={() => setRestTarget(prev => (prev || Date.now()) - 30000)} className="w-10 h-10 rounded-full bg-surface2 border border-border text-white font-bold active:scale-90">-30</button>
-                       <button onClick={() => setRestTarget(prev => (prev || Date.now()) + 30000)} className="w-10 h-10 rounded-full bg-surface2 border border-border text-white font-bold active:scale-90">+30</button>
-                       <button onClick={() => setRestTarget(null)} className="w-10 h-10 rounded-full bg-danger/20 border border-danger/40 text-danger font-bold active:scale-90">✕</button>
+                       <button onClick={() => { triggerHaptic('click'); setRestTarget(prev => (prev || Date.now()) - 30000); }} className="w-10 h-10 rounded-full bg-surface2 border border-border text-white font-bold active:scale-90">-30</button>
+                       <button onClick={() => { triggerHaptic('click'); setRestTarget(prev => (prev || Date.now()) + 30000); }} className="w-10 h-10 rounded-full bg-surface2 border border-border text-white font-bold active:scale-90">+30</button>
+                       <button onClick={() => { triggerHaptic('click'); setRestTarget(null); }} className="w-10 h-10 rounded-full bg-danger/20 border border-danger/40 text-danger font-bold active:scale-90">✕</button>
                     </div>
                 )}
              </div>
           </div>
       )}
 
-      {/* MODALS */}
       {selectedDaySessions && (
-          <Modal title={`Séances du ${selectedDaySessions[0]?.startTime ? new Date(selectedDaySessions[0].startTime).toLocaleDateString() : ''}`} onClose={() => setSelectedDaySessions(null)}>
+          <Modal title="Historique" onClose={() => setSelectedDaySessions(null)}>
               <div className="space-y-4">
                   {selectedDaySessions.map(s => {
                       const startTime = new Date(s.startTime);
                       const endTime = s.endTime ? new Date(s.endTime) : null;
                       const duration = s.endTime ? Math.floor((s.endTime - s.startTime) / 60000) : null;
-
                       return (
                       <div key={s.id} className="bg-surface2/30 p-4 rounded-2xl border border-border/50">
                           <div className="flex justify-between items-start mb-4 border-b border-border/30 pb-2">
                              <div>
                                 <h4 className="font-bold">{s.sessionName}</h4>
-                                <div className="text-[10px] text-secondary">{s.programName}</div>
-                                <div className="text-[10px] text-secondary mt-1">Forme : {s.fatigue}/5</div>
+                                <div className="text-[10px] text-secondary">{s.programName} • Forme {s.fatigue}/5</div>
                              </div>
                              <div className="text-right flex flex-col items-end">
                                 <div className="text-[10px] font-mono text-secondary">
-                                    {startTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} 
-                                    {endTime && ` - ${endTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`}
+                                    {startTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} {endTime && ` - ${endTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`}
                                 </div>
                                 {duration && <div className="text-[10px] font-black uppercase text-primary mt-1">{Math.floor(duration/60)}h{String(duration%60).padStart(2, '0')}</div>}
                              </div>
@@ -1646,29 +1289,17 @@ export default function App() {
                               {s.exercises.map(ex => {
                                   const doneSets = ex.sets.filter(st => st.done);
                                   if (doneSets.length === 0) return null;
-                                  
-                                  const libEx = library.find(l => l.id === ex.id);
+                                  const libEx = getExerciseById(ex.exerciseId);
                                   const isCardio = libEx?.type === 'Cardio';
                                   const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
-
                                   const weightStr = doneSets.map(st => st.weight).join(',');
-                                  // Normalize display: if static, stored value is seconds, so format it to MM:SS
                                   const repStr = doneSets.map(st => isStatic ? formatDuration(parseDuration(st.reps)) : st.reps).join(',');
-                                  // Cardio formatting in history: Parse stored seconds back to MM:SS if possible
                                   const rirStr = doneSets.map(st => isCardio ? formatDuration(st.rir || '0') : (st.rir || '-')).join(',');
-
                                   return (
-                                      <div key={ex.id} className="text-xs">
-                                          <div className="font-bold text-white mb-0.5">{libEx?.name || ex.id}</div>
-                                          <div className="font-mono text-secondary text-[11px] mb-1">
-                                            {weightStr} {isCardio ? "Lvl" : "kg"} x {repStr} {isCardio ? "m" : isStatic ? "s" : "reps"} | {isCardio ? "" : "RIR "}{rirStr}
-                                          </div>
-                                          {ex.notes && (
-                                              <div className="flex items-start gap-1.5 mt-0.5 text-[10px] text-secondary/70 italic pl-1 border-l-2 border-secondary/20">
-                                                  <span className="scale-75 opacity-70"><Icons.Note /></span>
-                                                  <span>{ex.notes}</span>
-                                              </div>
-                                          )}
+                                      <div key={ex.exerciseId} className="text-xs">
+                                          <div className="font-bold text-white mb-0.5">{libEx?.name || `Exo #${ex.exerciseId}`}</div>
+                                          <div className="font-mono text-secondary text-[11px] mb-1">{weightStr} {isCardio ? "Lvl" : "kg"} x {repStr} {isCardio ? "m" : isStatic ? "s" : "reps"} | {isCardio ? "" : "RIR "}{rirStr}</div>
+                                          {ex.notes && <div className="flex items-start gap-1.5 mt-0.5 text-[10px] text-secondary/70 italic pl-1 border-l-2 border-secondary/20"><span className="scale-75 opacity-70"><Icons.Note /></span><span>{ex.notes}</span></div>}
                                       </div>
                                   )
                               })}
@@ -1689,24 +1320,16 @@ export default function App() {
                   </div>
                   <div className="space-y-3">
                       {previewSession.session.exos.map((ex, idx) => {
-                          const libEx = library.find(l => l.id === ex.id);
+                          const libEx = getExerciseById(ex.exerciseId);
                           return (
-                              <div key={idx} className="bg-surface2/30 p-3 rounded-xl flex justify-between items-center">
-                                  <div>
-                                      <div className="font-bold text-sm">{libEx?.name || ex.id}</div>
-                                      <div className="text-[10px] text-secondary uppercase">{libEx?.muscle}</div>
-                                  </div>
-                                  <div className="text-right text-xs font-mono">
-                                      <div className="text-white font-bold">{ex.sets} x {ex.reps}</div>
-                                      <div className="text-secondary">{ex.rest}s</div>
-                                  </div>
+                              <div key={idx} className="bg-surface2/30 p-3 rounded-2xl flex justify-between items-center">
+                                  <div><div className="font-bold text-sm">{libEx?.name || `Exo #${ex.exerciseId}`}</div><div className="text-[10px] text-secondary uppercase">{libEx?.muscle}</div></div>
+                                  <div className="text-right text-xs font-mono"><div className="text-white font-bold">{ex.sets} x {ex.reps}</div><div className="text-secondary">{ex.rest}s</div></div>
                               </div>
                           )
                       })}
                   </div>
-                  <button onClick={() => startSession(previewSession.programName, previewSession.session)} className="w-full py-4 bg-primary text-background font-black uppercase rounded-2xl shadow-xl active:scale-95 transition-all">
-                      Démarrer la séance
-                  </button>
+                  <button onClick={() => startSession(previewSession.programName, previewSession.session)} className="w-full py-4 bg-primary text-background font-black uppercase rounded-[2rem] shadow-xl active:scale-95 transition-all">Démarrer la séance</button>
               </div>
           </Modal>
       )}
@@ -1714,52 +1337,17 @@ export default function App() {
       {showAddExoModal && (
          <Modal title="Ajouter Exercice" onClose={() => { setShowAddExoModal(false); setLibraryFilter(''); }}>
             <div className="space-y-4">
-               <input 
-                 placeholder="Rechercher (Nom, Muscle, Cardio...)" 
-                 className="w-full bg-surface2 p-3 rounded-xl outline-none" 
-                 onChange={(e) => setLibraryFilter(e.target.value)}
-                 autoFocus
-               />
+               <input placeholder="Rechercher..." className="w-full bg-surface2 p-3 rounded-2xl outline-none" onChange={(e) => setLibraryFilter(e.target.value)} autoFocus />
                <div className="max-h-60 overflow-y-auto space-y-2">
-                 {library.filter(l => {
-                    const q = libraryFilter.toLowerCase();
-                    return l.name.toLowerCase().includes(q) || 
-                           l.muscle.toLowerCase().includes(q) ||
-                           l.type.toLowerCase().includes(q) ||
-                           l.id.toLowerCase().includes(q);
-                 }).sort((a,b) => {
-                    // FIX: Treat undefined and false as identical for sorting
-                    const favA = !!a.isFavorite;
-                    const favB = !!b.isFavorite;
-                    if (favA === favB) return a.name.localeCompare(b.name);
-                    return favA ? -1 : 1;
-                 }).map(l => (
+                 {library.filter(l => !l.isArchived && ((l.name || '').toLowerCase().includes(libraryFilter.toLowerCase()) || (l.muscle || '').toLowerCase().includes(libraryFilter.toLowerCase()))).sort((a,b) => (a.isFavorite === b.isFavorite) ? (a.name || '').localeCompare(b.name || '') : (a.isFavorite ? -1 : 1)).map(l => (
                     <button key={l.id} onClick={() => {
                        if (session) {
-                          const newExos = [...session.exercises, {
-                             id: l.id,
-                             target: "3 x 10",
-                             rest: 90,
-                             targetRir: "", // FIX: Default target RIR empty as requested
-                             isBonus: true,
-                             notes: "",
-                             sets: [{ weight: "", reps: "", done: false, rir: "" }] // FIX: Default set RIR empty
-                          }];
+                          const newExos = [...session.exercises, { exerciseId: l.id, target: "3 x 10", rest: 90, targetRir: "", isBonus: true, notes: "", sets: [{ weight: "", reps: "", done: false, rir: "" }] }];
                           setSession({...session, exercises: newExos});
                        }
-                       setLibraryFilter(''); // Fix: Clear filter on selection
-                       setShowAddExoModal(false);
-                    }} className="w-full p-3 bg-surface2/50 rounded-xl text-left hover:bg-surface2 transition-colors flex justify-between items-center group">
-                       <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                              {l.isFavorite && <span className="text-gold"><Icons.Star /></span>}
-                              <div className="font-bold text-sm group-hover:text-primary transition-colors">{l.name}</div>
-                          </div>
-                          <div className="text-[10px] text-secondary uppercase mt-1 flex gap-2">
-                               <span>{l.muscle} • {EQUIPMENTS[l.equipment]}</span>
-                               <span style={{ color: TYPE_COLORS[l.type] }}>● {l.type}</span>
-                          </div>
-                       </div>
+                       setLibraryFilter(''); setShowAddExoModal(false);
+                    }} className="w-full p-3 bg-surface2/50 rounded-2xl text-left hover:bg-surface2 transition-colors flex justify-between items-center group">
+                       <div className="flex-1"><div className="flex items-center gap-2">{l.isFavorite && <span className="text-gold"><Icons.Star /></span>}<div className="font-bold text-sm group-hover:text-primary transition-colors">{l.name}</div></div><div className="text-[10px] text-secondary uppercase mt-1 flex gap-2"><span>{l.muscle} • {EQUIPMENTS[l.equipment]}</span><span style={{ color: TYPE_COLORS[l.type] }}>● {l.type}</span></div></div>
                        <div className="text-xl text-primary font-black">+</div>
                     </button>
                  ))}
@@ -1771,45 +1359,16 @@ export default function App() {
       {programExoPicker !== null && (
           <Modal title="Choisir Exercice" onClose={() => { setProgramExoPicker(null); setLibraryFilter(''); }}>
              <div className="space-y-4">
-               <input 
-                 placeholder="Rechercher (Nom, Muscle, Cardio...)" 
-                 className="w-full bg-surface2 p-3 rounded-xl outline-none" 
-                 onChange={(e) => setLibraryFilter(e.target.value)}
-                 autoFocus
-               />
+               <input placeholder="Rechercher..." className="w-full bg-surface2 p-3 rounded-2xl outline-none" onChange={(e) => setLibraryFilter(e.target.value)} autoFocus />
                <div className="max-h-60 overflow-y-auto space-y-2">
-                 {library.filter(l => {
-                    const q = libraryFilter.toLowerCase();
-                    return l.name.toLowerCase().includes(q) || 
-                           l.muscle.toLowerCase().includes(q) ||
-                           l.type.toLowerCase().includes(q) ||
-                           l.id.toLowerCase().includes(q);
-                 }).sort((a,b) => {
-                    // FIX: Treat undefined and false as identical for sorting
-                    const favA = !!a.isFavorite;
-                    const favB = !!b.isFavorite;
-                    if (favA === favB) return a.name.localeCompare(b.name);
-                    return favA ? -1 : 1;
-                 }).map(l => (
+                 {library.filter(l => !l.isArchived && ((l.name || '').toLowerCase().includes(libraryFilter.toLowerCase()) || (l.muscle || '').toLowerCase().includes(libraryFilter.toLowerCase()))).sort((a,b) => (a.isFavorite === b.isFavorite) ? (a.name || '').localeCompare(b.name || '') : (a.isFavorite ? -1 : 1)).map(l => (
                     <button key={l.id} onClick={() => {
                         if (editingProgram && programExoPicker !== null) {
-                            const newSess = [...editingProgram.sessions];
-                            newSess[programExoPicker].exos.push({ id: l.id, sets: 3, reps: "10", rest: 120 });
-                            setEditingProgram({...editingProgram, sessions: newSess});
+                            const newSess = [...editingProgram.sessions]; newSess[programExoPicker].exos.push({ exerciseId: l.id, sets: 3, reps: "10", rest: 120 }); setEditingProgram({...editingProgram, sessions: newSess});
                         }
-                        setLibraryFilter(''); // Fix: Clear filter on selection
-                        setProgramExoPicker(null);
-                    }} className="w-full p-3 bg-surface2/50 rounded-xl text-left hover:bg-surface2 transition-colors flex justify-between items-center group">
-                       <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                              {l.isFavorite && <span className="text-gold"><Icons.Star /></span>}
-                              <div className="font-bold text-sm group-hover:text-primary transition-colors">{l.name}</div>
-                          </div>
-                          <div className="text-[10px] text-secondary uppercase mt-1 flex gap-2">
-                               <span>{l.muscle} • {EQUIPMENTS[l.equipment]}</span>
-                               <span style={{ color: TYPE_COLORS[l.type] }}>● {l.type}</span>
-                          </div>
-                       </div>
+                        setLibraryFilter(''); setProgramExoPicker(null);
+                    }} className="w-full p-3 bg-surface2/50 rounded-2xl text-left hover:bg-surface2 transition-colors flex justify-between items-center group">
+                       <div className="flex-1"><div className="flex items-center gap-2">{l.isFavorite && <span className="text-gold"><Icons.Star /></span>}<div className="font-bold text-sm group-hover:text-primary transition-colors">{l.name}</div></div><div className="text-[10px] text-secondary uppercase mt-1 flex gap-2"><span>{l.muscle} • {EQUIPMENTS[l.equipment]}</span><span style={{ color: TYPE_COLORS[l.type] }}>● {l.type}</span></div></div>
                        <div className="text-xl text-primary font-black">+</div>
                     </button>
                  ))}
@@ -1846,7 +1405,7 @@ export default function App() {
                    </select>
                </div>
                <div className="space-y-2 pt-2 border-t border-border/50">
-                  <label className="text-[10px] font-black uppercase text-secondary">Conseils Techniques</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-secondary">Conseils Techniques</label>
                   <div className="space-y-2">
                      <textarea placeholder="Setup (1 par ligne)" rows={2} className="w-full bg-surface2 p-3 rounded-xl text-xs outline-none" value={editingExercise.tips?.setup?.join('\n') || ''} onChange={e => setEditingExercise({...editingExercise, tips: { ...editingExercise.tips, setup: e.target.value.split('\n') }})} />
                      <textarea placeholder="Exécution (1 par ligne)" rows={2} className="w-full bg-surface2 p-3 rounded-xl text-xs outline-none" value={editingExercise.tips?.exec?.join('\n') || ''} onChange={e => setEditingExercise({...editingExercise, tips: { ...editingExercise.tips, exec: e.target.value.split('\n') }})} />
@@ -1858,10 +1417,11 @@ export default function App() {
                   if (editingExercise.id) {
                      setLibrary(prev => prev.map(l => l.id === editingExercise.id ? editingExercise : l));
                   } else {
-                     setLibrary(prev => [...prev, { ...editingExercise, id: editingExercise.name.toLowerCase().replace(/\s+/g, '_') }]);
+                     const maxId = library.reduce((max, l) => Math.max(max, l.id), 0);
+                     setLibrary(prev => [...prev, { ...editingExercise, id: maxId + 1 }]);
                   }
                   setEditingExercise(null);
-               }} className="w-full py-3 bg-primary text-background font-black uppercase rounded-xl">Sauvegarder</button>
+               }} className="w-full py-3 bg-primary text-background font-black uppercase rounded-[2rem]">Sauvegarder</button>
             </div>
          </Modal>
       )}
@@ -1873,12 +1433,7 @@ export default function App() {
                {pendingConfirm.subMessage && <div className="text-sm text-secondary text-center whitespace-pre-wrap">{pendingConfirm.subMessage}</div>}
                <div className="grid grid-cols-2 gap-4 pt-2">
                   <button onClick={() => setPendingConfirm(null)} className="py-3 bg-surface2 rounded-xl text-xs font-bold uppercase">Annuler</button>
-                  <button onClick={() => {
-                     pendingConfirm.onConfirm();
-                     setPendingConfirm(null);
-                  }} className={`py-3 rounded-xl text-xs font-bold uppercase text-white ${pendingConfirm.variant === 'primary' ? 'bg-primary' : 'bg-danger'}`}>
-                     Confirmer
-                  </button>
+                  <button onClick={() => { pendingConfirm.onConfirm(); setPendingConfirm(null); }} className={`py-3 rounded-xl text-xs font-bold uppercase text-white ${pendingConfirm.variant === 'primary' ? 'bg-primary' : 'bg-danger'}`}>Confirmer</button>
                </div>
             </div>
          </div>

@@ -1,5 +1,6 @@
+
 {
-  "name": "IronTracker V10",
+  "name": "IronTracker",
   "short_name": "IronTracker",
   "start_url": "/",
   "display": "standalone",

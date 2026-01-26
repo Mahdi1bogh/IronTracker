@@ -1,5 +1,6 @@
+
 {
-  "name": "IronTracker V10",
-  "description": "A simple workout tracker with a programm and movement editor, basic progress analytics, and performance metrics.",
+  "name": "IronTracker",
+  "description": "The ultimate local-first workout tracker for serious lifters.",
   "requestFramePermissions": []
 }

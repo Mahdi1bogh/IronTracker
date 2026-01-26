@@ -8,7 +8,6 @@ export function calculate1RM(weight: any, reps: any): number {
   if (r === 1) return Math.round(w);
   
   // Wathen Formula
-  // 1RM = (100 * w) / (48.8 + (53.8 * Math.exp(-0.075 * r)))
   const result = (100 * w) / (48.8 + (53.8 * Math.exp(-0.075 * r)));
   
   return isFinite(result) ? Math.round(result) : 0;
@@ -24,7 +23,6 @@ export function formatDuration(seconds: number | string): string {
 
 export function parseDuration(input: string): number {
   if (!input) return 0;
-  // Support integers as seconds directly (legacy or direct input)
   if (!input.includes(':')) return parseInt(input) || 0;
   
   const parts = input.split(':');
@@ -42,32 +40,23 @@ export function parseDuration(input: string): number {
   return 0;
 }
 
-// Smart Input Pivot: Converts . or , to : and handles default integer logic
 export function smartFormatTime(input: string, type: 'Cardio' | 'Isométrique' | 'Other'): string {
   if (!input) return "";
-  // 1. Replace separators (dot, comma) with colon
   let clean = input.replace(/[.,]/g, ':').trim();
 
-  // 2. Check if simple integer (no separators)
   if (/^\d+$/.test(clean)) {
       if (type === 'Cardio') {
-          // Default to Minutes for Cardio (ex: 10 -> 10:00)
           return `${clean}:00`;
       } else if (type === 'Isométrique') {
-          // Default to Seconds for Iso (ex: 45 -> 00:45)
           return `00:${clean.padStart(2, '0')}`;
       }
       return clean;
   }
 
-  // 3. Formatting H:M:S or M:S logic
   const parts = clean.split(':');
-  
-  // 1.20 -> 01:20
   if (parts.length === 2) {
       return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
   }
-  // 1.01.20 -> 01:01:20
   if (parts.length === 3) {
       return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`;
   }
@@ -75,17 +64,17 @@ export function smartFormatTime(input: string, type: 'Cardio' | 'Isométrique' |
   return clean;
 }
 
-export function getExerciseStats(id: string, history: WorkoutSession[], type?: ExerciseType) {
+// Stats need explicit Library lookup now
+export function getExerciseStats(exerciseId: number, history: WorkoutSession[], type?: ExerciseType) {
   let prE1RM = 0;
   let prMaxWeight = 0;
   let lastDetailed = "-";
   let lastE1RM = 0;
 
-  // Exclude non-weight/reps types from PR calculation
   const shouldCalc1RM = type && type !== 'Cardio' && type !== 'Isométrique' && type !== 'Étirement';
 
   history.forEach(h => {
-    const ex = h.exercises.find(e => e.id === id);
+    const ex = h.exercises.find(e => e.exerciseId === exerciseId);
     if (ex) {
       ex.sets.forEach(s => {
         if (s.done) {
@@ -102,11 +91,11 @@ export function getExerciseStats(id: string, history: WorkoutSession[], type?: E
   });
 
   const exerciseLogs = history
-    .filter(h => h.exercises.some(e => e.id === id))
+    .filter(h => h.exercises.some(e => e.exerciseId === exerciseId))
     .sort((a, b) => b.startTime - a.startTime);
 
   if (exerciseLogs.length > 0) {
-    const lastEx = exerciseLogs[0].exercises.find(e => e.id === id);
+    const lastEx = exerciseLogs[0].exercises.find(e => e.exerciseId === exerciseId);
     if (lastEx) {
       const doneSets = lastEx.sets.filter(s => s.done);
       if (doneSets.length > 0) {
@@ -116,14 +105,10 @@ export function getExerciseStats(id: string, history: WorkoutSession[], type?: E
         const unitR = isCardio ? "m" : isStatic ? "s" : "reps";
 
         const weights = doneSets.map(s => s.weight).join(',');
-        
-        // Handling Reps display: 
-        // For Static, stored data is seconds. parseDuration ensures number, formatDuration makes it MM:SS.
         const reps = doneSets.map(s => 
             isStatic ? formatDuration(parseDuration(s.reps)) : s.reps
         ).join(',');
 
-        // Handling RIR/Duration display for Cardio
         const rirs = doneSets.map(s => 
             isCardio ? formatDuration(s.rir || '0') : (s.rir || '-')
         ).join(',');
@@ -138,6 +123,19 @@ export function getExerciseStats(id: string, history: WorkoutSession[], type?: E
   }
 
   return { pr: prE1RM, prMax: prMaxWeight, lastDetailed, lastE1RM };
+}
+
+export function triggerHaptic(type: 'success' | 'warning' | 'error' | 'click' | 'tick') {
+    if (typeof navigator === 'undefined' || !navigator.vibrate) return;
+    
+    // Note: navigator.vibrate is ignored on iOS Safari by default, works on Android
+    switch (type) {
+        case 'success': navigator.vibrate([50, 50, 50]); break; // Validation série
+        case 'warning': navigator.vibrate([200, 100, 200, 100, 500]); break; // Fin Timer
+        case 'error': navigator.vibrate([50, 50, 50, 50, 100]); break; // Danger
+        case 'click': navigator.vibrate(10); break; // Navigation
+        case 'tick': navigator.vibrate(5); break; // Sélecteurs
+    }
 }
 
 export function downloadFile(data: any, filename: string, mimeType: string = 'application/json') {
@@ -159,11 +157,9 @@ export function generateCSV(history: WorkoutSession[], library: LibraryExercise[
   ];
 
   const rows = [headers.join(",")];
-
-  // Helper to escape text for CSV
   const safe = (str: string) => {
     if (!str) return "";
-    const s = String(str).replace(/"/g, '""'); // Double quotes
+    const s = String(str).replace(/"/g, '""');
     return `"${s}"`;
   };
 
@@ -171,34 +167,31 @@ export function generateCSV(history: WorkoutSession[], library: LibraryExercise[
     const date = new Date(session.startTime).toISOString().split('T')[0];
     
     session.exercises.forEach((ex, exIdx) => {
-      const libEx = library.find(l => l.id === ex.id);
-      const exoName = libEx?.name || ex.id;
+      // RELATIONAL LOOKUP
+      const libEx = library.find(l => l.id === ex.exerciseId);
+      const exoName = libEx?.name || `Unknown ID: ${ex.exerciseId}`;
       const muscle = libEx?.muscle || "Unknown";
       const type = libEx?.type || "Unknown";
+      
       const note = ex.notes || "";
       const isCardio = type === 'Cardio';
       const isStatic = type === 'Isométrique' || type === 'Étirement';
 
       ex.sets.forEach((set, setIdx) => {
-        if (!set.done) return; // Export only completed sets
+        if (!set.done) return;
 
         const weight = parseFloat(set.weight) || 0;
-        
-        // Standardize duration/reps for CSV (always export number)
         let reps = 0;
         if (isStatic) {
-            reps = parseDuration(set.reps); // Handles "45" or "00:45"
+            reps = parseDuration(set.reps);
         } else {
             reps = parseFloat(set.reps) || 0;
         }
         
-        // Extract numeric value from RIR string for calculations (e.g. "~2" -> 2)
         const rirMatch = (set.rir || "").match(/\d+/);
-        // For Cardio, rir field is Duration. Export as seconds.
         const rirValue = isCardio ? parseDuration(set.rir || "0") : (rirMatch ? parseInt(rirMatch[0]) : 0);
-        const rirRaw = isCardio ? String(rirValue) : (set.rir || "0"); // Export raw seconds for cardio in CSV
+        const rirRaw = isCardio ? String(rirValue) : (set.rir || "0");
 
-        // Metrics
         const e1RM = (isCardio || isStatic) ? 0 : calculate1RM(weight, reps);
         const tonnage = (isCardio || isStatic) ? 0 : (weight * reps);
         const timestamp = set.completedAt ? new Date(set.completedAt).toISOString() : new Date(session.startTime).toISOString();

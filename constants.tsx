@@ -3,11 +3,11 @@ import React from 'react';
 import { ExerciseType } from './types';
 
 export const STORAGE_KEYS = {
-  LIB: "iron_v10_lib",
-  PROGS: "iron_v10_progs",
-  HIST: "iron_v10_hist",
-  SESS: "iron_v10_sess",
-  THEME: "iron_v10_theme"
+  LIB: "iron_v1_lib",
+  PROGS: "iron_v1_progs",
+  HIST: "iron_v1_hist",
+  SESS: "iron_v1_sess",
+  THEME: "iron_v1_theme"
 };
 
 export const THEMES = {

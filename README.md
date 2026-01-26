@@ -1,5 +1,5 @@
 
-# IronTracker V10 - Manuel d'Utilisation
+# IronTracker - Manuel d'Utilisation
 
 **IronTracker** est une application web progressive (PWA) de suivi de performance pour la musculation, conçue pour l'autonomie et la précision. Elle fonctionne intégralement en local (Local-First) pour garantir rapidité et confidentialité des données.
 
@@ -125,7 +125,7 @@ Vos données sont stockées localement dans le navigateur de votre téléphone.
 *   🔴 **Rouge :** Polyarticulaire (Base, lourd, nerveux).
 *   🔵 **Bleu :** Isolation (Ciblage, hypertrophie).
 *   🟢 **Vert :** Cardio (Endurance, métabolique).
-*   🟣 **Violet :** Isométrique (Statique, gainage).
+*   🟢 **Violet :** Isométrique (Statique, gainage).
 *   ⚪ **Gris :** Étirement / Mobilité.
 
 ### Niveau de Forme (Fatigue)
@@ -134,7 +134,40 @@ Visible sur le calendrier (pastille en haut à gauche du jour) :
 *   🟠 **Orange (2/5) :** Fatigué / Courbaturé.
 *   🟡 **Or (3/5) :** Normal / Moyen.
 *   🟢 **Vert Clair (4/5) :** En forme.
-*   🟢 **Vert Foncé (5/5) :** Olympique / Prime.
+*   🌳 **Vert Foncé (5/5) :** Olympique / Prime.
+
+---
+
+## 9. Architecture des Données (V1)
+
+Pour optimiser le stockage LocalStorage, IronTracker utilise une stratégie de compression "hybride". Les données utilisées dans l'application sont lisibles (Typescript), mais les données stockées sont minifiées.
+
+### Table de Correspondance (Mapping)
+
+Les chaînes longues sont remplacées par des codes courts :
+*   **Types :** `Polyarticulaire` -> `P`, `Isolation` -> `I`, `Cardio` -> `C`...
+*   **Muscles :** `Pectoraux` -> `PE`, `Dos` -> `DO`, `Jambes` -> `JA`...
+
+### Structure d'une Série (Minifiée)
+```json
+{
+  "w": 100,  // Weight
+  "r": 10,   // Reps
+  "d": 1,    // Done (boolean -> 0/1)
+  "ri": "2"  // RIR (optionnel)
+}
+```
+
+### Structure d'une Session (Minifiée)
+```json
+{
+  "i": 123456789, // ID
+  "pn": "PPL",    // Program Name
+  "sn": "PUSH A", // Session Name
+  "dt": 123456... // Date (Timestamp)
+  "e": [...]      // Exercises Array
+}
+```
 
 ---
 
