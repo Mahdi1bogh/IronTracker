@@ -38,7 +38,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onStartSession }) 
         <SectionCard className="p-4">
           <div className="flex justify-between items-center mb-6 px-1">
             <button onClick={() => { triggerHaptic('click'); setCalDate(new Date(curYear, curMonth - 1)); }} className="p-2 bg-surface2 border border-border/50 rounded-lg text-secondary hover:text-white transition-colors"><Icons.ChevronLeft size={16} /></button>
-            <h3 className="text-xs font-black uppercase tracking-widest text-white">{calDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest">{calDate.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}</h3>
             <button onClick={() => { triggerHaptic('click'); setCalDate(new Date(curYear, curMonth + 1)); }} className="p-2 bg-surface2 border border-border/50 rounded-lg text-secondary hover:text-white transition-colors"><Icons.ChevronRight size={16} /></button>
           </div>
           <div className="grid grid-cols-7 gap-2">
