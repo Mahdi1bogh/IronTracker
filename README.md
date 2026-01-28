@@ -30,13 +30,14 @@ IronTracker est un carnet d'entraînement numérique conçu pour être simple, r
 ## Terminologie & Légendes
 
 ### Types d'exercices
-*   <span style="color:#f85149">●</span> **Polyarticulaire** : Mouvements composés (Squat, Dips, Tractions...).
-*   <span style="color:#58a6ff">●</span> **Isolation** : Mouvements mono-articulaires.
-*   <span style="color:#a371f7">●</span> **Isométrique** : Effort statique (Planche, Front Lever...).
-*   <span style="color:#3fb950">●</span> **Cardio** : Endurance fondamentale ou HIIT.
-*   <span style="color:#8b949e">●</span> **Étirement** : Mobilité.
+*   🔴 **Polyarticulaire** : Mouvements composés (Squat, Dips, Tractions...).
+*   🔵 **Isolation** : Mouvements mono-articulaires.
+*   🟣 **Isométrique** : Effort statique (Planche, Front Lever...).
+*   🟢 **Cardio** : Endurance fondamentale ou HIIT.
+*   ⚪ **Étirement** : Mobilité.
 
 ### Indicateurs
+*   **PR** (Personal Record) : Record personel déplacé sur une charge de travail.
 *   **RPE / Forme** : Évaluation subjective de la forme du jour (1 à 5).
 *   **RIR** (Reps In Reserve) : Nombre de répétitions encore possibles avant l'échec.
 *   **W** (Warmup) : Indique une série d'échauffement (exclue des statistiques de performance).
