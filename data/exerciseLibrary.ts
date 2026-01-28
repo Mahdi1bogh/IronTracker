@@ -3,7 +3,7 @@ import { LibraryExercise } from '../types';
 
 // Static numeric IDs for default library to ensure consistency across installs
 export const DEFAULT_LIBRARY: LibraryExercise[] = [
-    // PECTORAUX
+    // PECTORAUX (Machines & Poids Libres)
     {
       "id": 1,
       "name": "Barbell Bench Press",
@@ -53,14 +53,6 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "tips": { "setup": ["Buste penché en avant (focus pecs)", "Jambes croisées"], "exec": ["Descendre jusqu'à l'étirement confortable", "Pousser"], "mistake": ["Descendre trop bas (danger épaules)", "Rester trop droit (focus triceps)"] }
     },
     {
-      "id": 7,
-      "name": "Push-Up",
-      "type": "Polyarticulaire",
-      "muscle": "Pectoraux",
-      "equipment": "BW",
-      "tips": { "setup": ["Mains largeur épaules", "Corps aligné"], "exec": ["Poitrine au sol", "Extension complète"], "mistake": ["Hanches qui tombent", "Coudes à 90° (T)"] }
-    },
-    {
       "id": 8,
       "name": "Pec Deck",
       "type": "Isolation",
@@ -85,7 +77,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "tips": { "setup": ["Un pied devant pour l'équilibre", "Buste penché"], "exec": ["Amener les poignées devant le nombril", "Serrer les pecs"], "mistake": ["Épaules qui remontent", "Balancier du corps"] }
     },
 
-    // ÉPAULES
+    // ÉPAULES (Machines & Poids Libres)
     {
       "id": 11,
       "name": "Dumbbell Shoulder Press",
@@ -109,14 +101,6 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "muscle": "Épaules",
       "equipment": "DB",
       "tips": { "setup": ["Haltères devant, paumes vers soi"], "exec": ["Rotation en poussant", "Finir paumes vers l'avant"], "mistake": ["Manque de fluidité", "Charge trop lourde"] }
-    },
-    {
-      "id": 14,
-      "name": "Handstand Push-Up",
-      "type": "Polyarticulaire",
-      "muscle": "Épaules",
-      "equipment": "BW",
-      "tips": { "setup": ["Mains largeur épaules", "Corps gainé en équilibre"], "exec": ["Descendre tête au sol (triangle)", "Pousser fort"], "mistake": ["Dos cambré (Banane)", "Coudes trop écartés"] }
     },
     {
       "id": 15,
@@ -159,7 +143,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "tips": { "setup": ["Buste // au sol", "Dos plat"], "exec": ["Lever les bras sur le côté", "Omoplates fixes"], "mistake": ["Relever le buste", "Élan"] }
     },
     
-    // DOS
+    // DOS (Machines & Poids Libres)
     {
       "id": 20,
       "name": "Deadlift",
@@ -167,22 +151,6 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "muscle": "Dos",
       "equipment": "BB",
       "tips": { "setup": ["Pieds largeur hanches", "Barre au dessus des lacets"], "exec": ["Pousser le sol (Jambes) puis tirer (Dos)", "Barre longe les tibias"], "mistake": ["Dos rond", "Tirer avec les bras"] }
-    },
-    {
-      "id": 21,
-      "name": "Pull-Up",
-      "type": "Polyarticulaire",
-      "muscle": "Dos",
-      "equipment": "BW",
-      "tips": { "setup": ["Prise pronation large", "Corps gainé"], "exec": ["Amener le menton au dessus de la barre", "Contrôler la descente"], "mistake": ["Kipping (élan)", "Amplitude partielle", "Épaules aux oreilles"] }
-    },
-    {
-      "id": 22,
-      "name": "Chin-Up",
-      "type": "Polyarticulaire",
-      "muscle": "Dos",
-      "equipment": "BW",
-      "tips": { "setup": ["Prise supination (paumes vers soi)"], "exec": ["Tirer jusqu'au menton", "Contrôler"], "mistake": ["Se balancer", "Descendre à moitié"] }
     },
     {
       "id": 23,
@@ -231,22 +199,6 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "muscle": "Dos",
       "equipment": "BB",
       "tips": { "setup": ["Entre les jambes", "Dos plat impératif"], "exec": ["Tirer vers le haut", "Contracter le dos"], "mistake": ["Arrondir les lombaires", "Élan excessif"] }
-    },
-    {
-      "id": 29,
-      "name": "Australian Pull-Up",
-      "type": "Polyarticulaire",
-      "muscle": "Dos",
-      "equipment": "BW",
-      "tips": { "setup": ["Barre basse", "Corps droit comme une planche"], "exec": ["Tirer la poitrine à la barre", "Omoplates serrées"], "mistake": ["Bassin qui tombe", "Tirer avec les bras uniquement"] }
-    },
-    {
-      "id": 30,
-      "name": "Muscle-Up",
-      "type": "Polyarticulaire",
-      "muscle": "Dos",
-      "equipment": "BW",
-      "tips": { "setup": ["Prise false grip (optionnel)", "Balancier contrôlé"], "exec": ["Tirer explosif au nombril", "Transition rapide vers dips"], "mistake": ["Kipping excessif", "Coudes asymétriques"] }
     },
     {
       "id": 31,
@@ -537,7 +489,145 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "tips": { "setup": ["Unilatéral", "Avant-bras calé"], "exec": ["Enrouler le poignet"], "mistake": ["Mouvement trop rapide"] }
     },
 
-    // SKILLS & ISOMETRIQUE
+    // CARDIO
+    {
+      "id": 71,
+      "name": "Rowing Machine",
+      "type": "Cardio",
+      "muscle": "Cardio",
+      "equipment": "EM",
+      "tips": { "setup": ["Pieds sanglés", "Dos droit"], "exec": ["Poussée jambes -> Dos -> Bras", "Retour inverse"], "mistake": ["Arrondir le dos", "Tirer bras avant jambes"] }
+    },
+    {
+      "id": 72,
+      "name": "Treadmill",
+      "type": "Cardio",
+      "muscle": "Cardio",
+      "equipment": "EM",
+      "tips": { "setup": ["Chaussures adaptées"], "exec": ["Course ou marche inclinée"], "mistake": ["Se tenir aux poignées (réduit l'effort)"] }
+    },
+    {
+      "id": 73,
+      "name": "Stationary Bike",
+      "type": "Cardio",
+      "muscle": "Cardio",
+      "equipment": "EM",
+      "tips": { "setup": ["Selle hauteur hanche"], "exec": ["Pédalage fluide"], "mistake": ["Genoux qui rentrent", "Selle trop basse"] }
+    },
+    {
+      "id": 79,
+      "name": "Stair Climber",
+      "type": "Cardio",
+      "muscle": "Cardio",
+      "equipment": "EM",
+      "tips": { "setup": ["Dos droit", "Mains posées légèrement"], "exec": ["Monter marche par marche", "Rythme constant"], "mistake": ["S'affaler sur la machine", "Petits pas rapides"] }
+    },
+    
+    // CALISTHENICS / STREET WORKOUT / SKILLS
+    {
+      "id": 7,
+      "name": "Push-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Pectoraux",
+      "equipment": "BW",
+      "tips": { "setup": ["Mains largeur épaules", "Corps aligné"], "exec": ["Poitrine au sol", "Extension complète"], "mistake": ["Hanches qui tombent", "Coudes à 90° (T)"] }
+    },
+    {
+      "id": 74,
+      "name": "Diamond Push-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Bras",
+      "equipment": "BW",
+      "tips": { "setup": ["Mains jointes (index et pouces)", "Corps gainé"], "exec": ["Descendre poitrine sur mains", "Pousser triceps"], "mistake": ["Coudes trop écartés", "Dos creusé"] }
+    },
+    {
+      "id": 80,
+      "name": "Archer Push-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Pectoraux",
+      "equipment": "BW",
+      "tips": { "setup": ["Mains très écartées", "Doigts vers l'extérieur"], "exec": ["Descendre sur un bras", "L'autre bras reste tendu"], "mistake": ["Plier le bras 'archer'", "Hanches non alignées"] }
+    },
+    {
+      "id": 21,
+      "name": "Pull-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Dos",
+      "equipment": "BW",
+      "tips": { "setup": ["Prise pronation large", "Corps gainé"], "exec": ["Amener le menton au dessus de la barre", "Contrôler la descente"], "mistake": ["Kipping (élan)", "Amplitude partielle", "Épaules aux oreilles"] }
+    },
+    {
+      "id": 22,
+      "name": "Chin-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Dos",
+      "equipment": "BW",
+      "tips": { "setup": ["Prise supination (paumes vers soi)"], "exec": ["Tirer jusqu'au menton", "Contrôler"], "mistake": ["Se balancer", "Descendre à moitié"] }
+    },
+    {
+      "id": 29,
+      "name": "Australian Pull-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Dos",
+      "equipment": "BW",
+      "tips": { "setup": ["Barre basse", "Corps droit comme une planche"], "exec": ["Tirer la poitrine à la barre", "Omoplates serrées"], "mistake": ["Bassin qui tombe", "Tirer avec les bras uniquement"] }
+    },
+    {
+      "id": 81,
+      "name": "Archer Pull-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Dos",
+      "equipment": "BW",
+      "tips": { "setup": ["Prise très large"], "exec": ["Tirer vers une main", "L'autre bras tendu sur la barre"], "mistake": ["Ne pas monter assez haut", "Acoups"] }
+    },
+    {
+      "id": 30,
+      "name": "Muscle-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Dos",
+      "equipment": "BW",
+      "tips": { "setup": ["Prise false grip (optionnel)", "Balancier contrôlé"], "exec": ["Tirer explosif au nombril", "Transition rapide vers dips"], "mistake": ["Kipping excessif", "Coudes asymétriques"] }
+    },
+    {
+      "id": 14,
+      "name": "Handstand Push-Up",
+      "type": "Polyarticulaire",
+      "muscle": "Épaules",
+      "equipment": "BW",
+      "tips": { "setup": ["Mains largeur épaules", "Corps gainé en équilibre"], "exec": ["Descendre tête au sol (triangle)", "Pousser fort"], "mistake": ["Dos cambré (Banane)", "Coudes trop écartés"] }
+    },
+    {
+        "id": 75,
+        "name": "Pike Push-Up",
+        "type": "Polyarticulaire",
+        "muscle": "Épaules",
+        "equipment": "BW",
+        "tips": { "setup": ["Corps en V inversé", "Hanches hautes"], "exec": ["Descendre le front vers le sol (triangle)", "Pousser vers les hanches"], "mistake": ["Coudes vers l'extérieur", "Dos rond"] }
+    },
+    {
+        "id": 77,
+        "name": "Ring Dip",
+        "type": "Polyarticulaire",
+        "muscle": "Pectoraux",
+        "equipment": "OT",
+        "tips": { "setup": ["Anneaux largeur épaules", "Bras verrouillés"], "exec": ["Descendre profond", "Garder les anneaux proches"], "mistake": ["Trembler (manque stabilité)", "Épaules en avant"] }
+    },
+    {
+        "id": 78,
+        "name": "Ring Row",
+        "type": "Polyarticulaire",
+        "muscle": "Dos",
+        "equipment": "OT",
+        "tips": { "setup": ["Corps incliné sous anneaux", "Gainage"], "exec": ["Tirer poitrine aux anneaux", "Omoplates serrées"], "mistake": ["Bassin qui tombe", "Tirer avec les bras"] }
+    },
+    {
+        "id": 76,
+        "name": "Nordic Curl",
+        "type": "Isolation",
+        "muscle": "Jambes",
+        "equipment": "BW",
+        "tips": { "setup": ["Talons bloqués", "Corps droit"], "exec": ["Descendre lentement (excentrique)", "Freiner la chute"], "mistake": ["Plier les hanches", "Acoups"] }
+    },
     {
       "id": 66,
       "name": "Front Lever",
@@ -577,31 +667,5 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "muscle": "Abdos",
       "equipment": "BW",
       "tips": { "setup": ["Prise mixte espalier/poteau"], "exec": ["Bras du bas pousse, bras du haut tire", "Corps latéral"], "mistake": ["Hanches qui tournent", "Bras pliés"] }
-    },
-
-    // CARDIO
-    {
-      "id": 71,
-      "name": "Rowing Machine",
-      "type": "Cardio",
-      "muscle": "Cardio",
-      "equipment": "EM",
-      "tips": { "setup": ["Pieds sanglés", "Dos droit"], "exec": ["Poussée jambes -> Dos -> Bras", "Retour inverse"], "mistake": ["Arrondir le dos", "Tirer bras avant jambes"] }
-    },
-    {
-      "id": 72,
-      "name": "Treadmill",
-      "type": "Cardio",
-      "muscle": "Cardio",
-      "equipment": "EM",
-      "tips": { "setup": ["Chaussures adaptées"], "exec": ["Course ou marche inclinée"], "mistake": ["Se tenir aux poignées (réduit l'effort)"] }
-    },
-    {
-      "id": 73,
-      "name": "Stationary Bike",
-      "type": "Cardio",
-      "muscle": "Cardio",
-      "equipment": "EM",
-      "tips": { "setup": ["Selle hauteur hanche"], "exec": ["Pédalage fluide"], "mistake": ["Genoux qui rentrent", "Selle trop basse"] }
     }
 ];

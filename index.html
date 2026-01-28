@@ -31,6 +31,7 @@
               secondary: '#8b949e',
               success: '#238636',
               danger: '#da3633',
+              warning: '#fb8c00',
               gold: '#d29922',
               cyan1rm: '#00ffcc',
               purpleEquip: '#a371f7'
@@ -38,6 +39,30 @@
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
               mono: ['JetBrains Mono', 'monospace']
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              zoomIn: {
+                '0%': { opacity: '0', transform: 'scale(0.96)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
+              },
+              slideInBottom: {
+                '0%': { transform: 'translateY(100%)' },
+                '100%': { transform: 'translateY(0)' },
+              },
+              pulseSubtle: {
+                '0%, 100%': { opacity: '1' },
+                '50%': { opacity: '0.8' },
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.2s ease-out forwards',
+              'zoom-in': 'zoomIn 0.25s cubic-bezier(0.2, 0, 0.2, 1) forwards',
+              'slide-in-bottom': 'slideInBottom 0.3s cubic-bezier(0.2, 0, 0.2, 1) forwards',
+              'pulse-slow': 'pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
             }
           }
         }
@@ -74,8 +99,11 @@
     "react/": "https://esm.sh/react@18.2.0/",
     "react-dom": "https://esm.sh/react-dom@18.2.0",
     "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?external=react,react-dom",
+    "@remix-run/router": "https://esm.sh/@remix-run/router@1.15.3",
     "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
-    "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "zustand": "https://esm.sh/zustand@4.5.2?external=react"
   }
 }
 </script>

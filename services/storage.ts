@@ -33,6 +33,7 @@ const dehydrateSet = (s: SetRecord): MinifiedSet => {
     if (s.rir) min.ri = s.rir;
     if (s.notes) min.n = s.notes;
     if (s.completedAt) min.ca = s.completedAt;
+    if (s.isWarmup) min.wu = 1;
     return min;
 };
 
@@ -117,7 +118,8 @@ const hydrateSet = (ms: any): SetRecord => {
         rir: ms.ri,
         done: ms.d === 1,
         notes: ms.n,
-        completedAt: ms.ca
+        completedAt: ms.ca,
+        isWarmup: ms.wu === 1
     };
 };
 

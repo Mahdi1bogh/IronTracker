@@ -6,6 +6,7 @@ export interface SetRecord {
   done: boolean;
   notes?: string;
   completedAt?: number;
+  isWarmup?: boolean; // New flag for warmup sets
 }
 
 export interface ExerciseInstance {
@@ -27,6 +28,7 @@ export interface WorkoutSession {
   bodyWeight: string;
   fatigue: string; // 1 to 5
   exercises: ExerciseInstance[];
+  mode?: 'active' | 'log';
 }
 
 export type ExerciseType = 'Isolation' | 'Polyarticulaire' | 'Cardio' | 'Isométrique' | 'Étirement';
@@ -64,21 +66,21 @@ export interface Program {
   sessions: ProgramSession[];
 }
 
-export enum View {
-  Dashboard = 'dashboard',
-  Programs = 'programs',
-  Workout = 'workout',
-  Analytics = 'analytics',
-  Settings = 'settings',
-  Records = 'records',
-  EditorProgram = 'editor_program',
-  OneRMCalculator = '1rm_calculator',
-  Library = 'library'
-}
-
 export type AccentColor = 'blue' | 'emerald' | 'gold' | 'purple' | 'red' | 'cyan' | 'gray';
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+// Confirmation System Type
+export interface ConfirmationOptions {
+  title?: string;
+  message: string;
+  subMessage?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  variant?: 'danger' | 'primary';
+  onConfirm: () => void;
+  onCancel?: () => void;
 }

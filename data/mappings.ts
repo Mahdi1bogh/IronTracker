@@ -58,6 +58,7 @@ export interface MinifiedSet {
   d: number; // done (0 or 1)
   n?: string; // notes
   ca?: number; // completedAt
+  wu?: number; // isWarmup (0 or 1)
 }
 
 export interface MinifiedExoInstance {

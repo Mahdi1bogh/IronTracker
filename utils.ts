@@ -1,5 +1,6 @@
 
-import { WorkoutSession, LibraryExercise, ExerciseType } from "./types";
+import { WorkoutSession, LibraryExercise, ExerciseType, SetRecord } from "./types";
+import { STORAGE_KEYS } from "./constants";
 
 export function calculate1RM(weight: any, reps: any): number {
   const w = parseFloat(String(weight));
@@ -64,69 +65,126 @@ export function smartFormatTime(input: string, type: 'Cardio' | 'Isométrique' |
   return clean;
 }
 
-// Stats need explicit Library lookup now
+// Helper to format a list of sets into the requested string format
+// Ex: 80,80,90 x 8,8,6 | RIR 2,1,0
+function formatSessionSets(sets: SetRecord[], type?: ExerciseType): string {
+    const doneSets = sets.filter(s => s.done && !s.isWarmup); // Exclude warmups from summary
+    if (doneSets.length === 0) return "-";
+
+    const isCardio = type === 'Cardio';
+    const isStatic = type === 'Isométrique' || type === 'Étirement';
+
+    const weights = doneSets.map(s => s.weight).join(',');
+    const reps = doneSets.map(s => isStatic ? formatDuration(parseDuration(s.reps)) : s.reps).join(',');
+    const rirs = doneSets.map(s => isCardio ? formatDuration(s.rir || '0') : (s.rir || '-')).join(',');
+
+    // Compact format to save space
+    return `${weights} x ${reps} | ${isCardio ? "" : "RIR "}${rirs}`;
+}
+
 export function getExerciseStats(exerciseId: number, history: WorkoutSession[], type?: ExerciseType) {
   let prE1RM = 0;
   let prMaxWeight = 0;
-  let lastDetailed = "-";
-  let lastE1RM = 0;
-
-  const shouldCalc1RM = type && type !== 'Cardio' && type !== 'Isométrique' && type !== 'Étirement';
-
-  history.forEach(h => {
-    const ex = h.exercises.find(e => e.exerciseId === exerciseId);
-    if (ex) {
-      ex.sets.forEach(s => {
-        if (s.done) {
-          const w = parseFloat(s.weight) || 0;
-          const r = parseFloat(s.reps) || 0;
-          if (shouldCalc1RM) {
-              const e1rm = calculate1RM(w, r);
-              if (e1rm > prE1RM) prE1RM = e1rm;
-          }
-          if (w > prMaxWeight) prMaxWeight = w;
-        }
-      });
-    }
-  });
-
-  const exerciseLogs = history
+  
+  // Strings for the new WorkoutView format
+  let lastSessionString = "-";
+  let prSessionString = "-";
+  
+  // New metrics
+  let lastSessionTonnage = 0;
+  let lastBestSet: { weight: number, reps: number, e1rm: number } | null = null;
+  
+  // Find sessions containing this exercise
+  const exerciseSessions = history
     .filter(h => h.exercises.some(e => e.exerciseId === exerciseId))
-    .sort((a, b) => b.startTime - a.startTime);
+    .sort((a, b) => b.startTime - a.startTime); // Newest first
 
-  if (exerciseLogs.length > 0) {
-    const lastEx = exerciseLogs[0].exercises.find(e => e.exerciseId === exerciseId);
-    if (lastEx) {
-      const doneSets = lastEx.sets.filter(s => s.done);
-      if (doneSets.length > 0) {
-        const isCardio = type === 'Cardio';
-        const isStatic = type === 'Isométrique' || type === 'Étirement';
-        const unitW = isCardio ? "Lvl" : "kg";
-        const unitR = isCardio ? "m" : isStatic ? "s" : "reps";
-
-        const weights = doneSets.map(s => s.weight).join(',');
-        const reps = doneSets.map(s => 
-            isStatic ? formatDuration(parseDuration(s.reps)) : s.reps
-        ).join(',');
-
-        const rirs = doneSets.map(s => 
-            isCardio ? formatDuration(s.rir || '0') : (s.rir || '-')
-        ).join(',');
-        
-        lastDetailed = `${weights} ${unitW} x ${reps} ${unitR} | ${isCardio ? "" : "RIR "}${rirs}`;
-        
-        if (shouldCalc1RM) {
-             lastE1RM = Math.max(...doneSets.map(s => calculate1RM(s.weight, s.reps)));
-        }
+  if (exerciseSessions.length > 0) {
+      // 1. Last Session Data
+      const lastSess = exerciseSessions[0];
+      const lastExo = lastSess.exercises.find(e => e.exerciseId === exerciseId);
+      if (lastExo) {
+          lastSessionString = formatSessionSets(lastExo.sets, type);
+          
+          // Calculate Last Tonnage & Best Set (Excluding Warmups)
+          lastExo.sets.forEach(s => {
+              if (s.done && !s.isWarmup) {
+                  const w = parseFloat(s.weight) || 0;
+                  const r = parseFloat(s.reps) || 0; // Simplified for non-static
+                  lastSessionTonnage += (w * r);
+                  
+                  const e1rm = calculate1RM(w, r);
+                  if (!lastBestSet || e1rm > lastBestSet.e1rm) {
+                      lastBestSet = { weight: w, reps: r, e1rm };
+                  }
+              }
+          });
       }
-    }
+
+      // 2. PR Session (Best E1RM session)
+      const shouldCalc1RM = type && type !== 'Cardio' && type !== 'Isométrique' && type !== 'Étirement';
+      
+      let bestSess = null;
+      let maxCalc = 0;
+
+      exerciseSessions.forEach(sess => {
+          const ex = sess.exercises.find(e => e.exerciseId === exerciseId);
+          if (!ex) return;
+          
+          let sessMax = 0;
+          ex.sets.forEach(s => {
+              if (s.done && !s.isWarmup) {
+                  const w = parseFloat(s.weight) || 0;
+                  const r = parseFloat(s.reps) || 0;
+                  if (shouldCalc1RM) {
+                      const e1rm = calculate1RM(w, r);
+                      if (e1rm > sessMax) sessMax = e1rm;
+                      if (e1rm > prE1RM) prE1RM = e1rm; // Global PR
+                  } else {
+                      if (w > sessMax) sessMax = w;
+                  }
+                  if (w > prMaxWeight) prMaxWeight = w; // Global Max Weight
+              }
+          });
+
+          if (sessMax > maxCalc) {
+              maxCalc = sessMax;
+              bestSess = sess;
+          }
+      });
+
+      if (bestSess) {
+          const bestExo = (bestSess as WorkoutSession).exercises.find(e => e.exerciseId === exerciseId);
+          if (bestExo) {
+              prSessionString = formatSessionSets(bestExo.sets, type);
+          }
+      }
   }
 
-  return { pr: prE1RM, prMax: prMaxWeight, lastDetailed, lastE1RM };
+  // Compatibility return for RecordsView (which uses pr, prMax, lastDetailed)
+  // and WorkoutView (which uses lastSessionString, prSessionString)
+  return { 
+      pr: prE1RM, 
+      prMax: prMaxWeight, 
+      lastDetailed: lastSessionString, 
+      lastSessionString,
+      prSessionString,
+      lastSessionTonnage,
+      lastBestSet
+  };
 }
 
 export function triggerHaptic(type: 'success' | 'warning' | 'error' | 'click' | 'tick') {
     if (typeof navigator === 'undefined' || !navigator.vibrate) return;
+    
+    // Check user preferences directly from storage to decouple from React state
+    // Default to true if not set (null)
+    const isTactileOn = localStorage.getItem(STORAGE_KEYS.HAPTIC_TACTILE) !== 'false';
+    const isSessionOn = localStorage.getItem(STORAGE_KEYS.HAPTIC_SESSION) !== 'false';
+
+    // Filter based on type category
+    if ((type === 'click' || type === 'tick') && !isTactileOn) return;
+    if ((type === 'success' || type === 'warning' || type === 'error') && !isSessionOn) return;
     
     // Note: navigator.vibrate is ignored on iOS Safari by default, works on Android
     switch (type) {
@@ -153,7 +211,7 @@ export function generateCSV(history: WorkoutSession[], library: LibraryExercise[
     "Date", "Program_name", "Session_name", "RPE_Session", "Bodyweight", 
     "Exercise_Order", "Exercise_name", "Muscle_Group", "Exercise_Type", "Exercise_Note", 
     "Set_Order", "Weight_or_Lest_or_lvl", "Reps_or_Dist_or_Duration", "RIR_or_Duration", 
-    "Estimated_1RM", "Tonnage", "Validation_Timestamp"
+    "Is_Warmup", "Estimated_1RM", "Tonnage", "Validation_Timestamp"
   ];
 
   const rows = [headers.join(",")];
@@ -192,8 +250,9 @@ export function generateCSV(history: WorkoutSession[], library: LibraryExercise[
         const rirValue = isCardio ? parseDuration(set.rir || "0") : (rirMatch ? parseInt(rirMatch[0]) : 0);
         const rirRaw = isCardio ? String(rirValue) : (set.rir || "0");
 
-        const e1RM = (isCardio || isStatic) ? 0 : calculate1RM(weight, reps);
-        const tonnage = (isCardio || isStatic) ? 0 : (weight * reps);
+        // Warmup exclusion for calculation
+        const e1RM = (isCardio || isStatic || set.isWarmup) ? 0 : calculate1RM(weight, reps);
+        const tonnage = (isCardio || isStatic || set.isWarmup) ? 0 : (weight * reps);
         const timestamp = set.completedAt ? new Date(set.completedAt).toISOString() : new Date(session.startTime).toISOString();
 
         const row = [
@@ -211,6 +270,7 @@ export function generateCSV(history: WorkoutSession[], library: LibraryExercise[
           weight,
           reps,
           safe(rirRaw), 
+          set.isWarmup ? "Yes" : "No",
           e1RM,
           tonnage,
           timestamp
