@@ -72,7 +72,7 @@ export const QuickPlateModal: React.FC<QuickPlateModalProps> = ({ targetWeight: 
                             </div>
                         </div>
                     ) : (
-                        <div className="text-secondary text-xs italic">Entrez un poids valide (> barre).</div>
+                        <div className="text-secondary text-xs italic">Entrez un poids valide (&gt; barre).</div>
                     )}
                 </div>
             </div>
