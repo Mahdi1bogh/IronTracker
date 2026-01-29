@@ -1,174 +1,71 @@
 
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store/useStore';
-import { SetRecord, ExerciseInstance } from '../types';
+import { useWorkoutManager } from '../hooks/useWorkoutManager';
 import { SectionCard } from '../components/ui/SectionCard';
 import { Modal } from '../components/ui/Modal';
 import { Icons } from '../components/Icons';
-import { triggerHaptic, getExerciseStats, calculate1RM, formatDuration, parseDuration } from '../utils';
-import { storage } from '../services/storage';
+import { QuickPlateModal } from '../components/tools/QuickPlateModal';
+import { triggerHaptic, getExerciseStats, calculate1RM, formatDuration } from '../utils';
 import { TYPE_COLORS, FATIGUE_COLORS } from '../constants';
 import { EQUIPMENTS } from '../data/equipments';
-import { useConfirm } from '../hooks/useConfirm';
 
-const moveItem = <T,>(arr: T[], from: number, to: number): T[] => {
-    if (to < 0 || to >= arr.length) return arr;
-    const newArr = [...arr];
-    const [item] = newArr.splice(from, 1);
-    newArr.splice(to, 0, item);
-    return newArr;
+// Helper for Trend Symbol
+const getTrend = (current: number, previous: number) => {
+    if (!previous || previous === 0) return { sym: '', color: 'text-secondary' };
+    if (current > previous) return { sym: '▴', color: 'text-success' };
+    if (current < previous) return { sym: '▾', color: 'text-danger' };
+    return { sym: '▸', color: 'text-secondary' };
 };
 
 export const WorkoutView: React.FC = () => {
-    const navigate = useNavigate();
-    const session = useStore(s => s.session);
-    const setSession = useStore(s => s.setSession);
-    const setHistory = useStore(s => s.setHistory);
-    const history = useStore(s => s.history);
-    const library = useStore(s => s.library);
-    const setRestTarget = useStore(s => s.setRestTarget);
-    
-    const confirm = useConfirm();
+    const { 
+        session, isLogMode, library, history, getExerciseById,
+        updateSet, addSet, removeSet, removeExercise, moveExercise, addExercise, 
+        generateWarmup, cancelSession, finishSession, updateSessionSettings, updateExerciseNotes
+    } = useWorkoutManager();
 
+    // UI State
     const [activeDetailExo, setActiveDetailExo] = useState<{ idx: number, tab: 'info' | 'history' | 'notes' } | null>(null);
     const [showAddExoModal, setShowAddExoModal] = useState(false);
     const [showSessionSettings, setShowSessionSettings] = useState(false);
     const [showFinishModal, setShowFinishModal] = useState(false);
     const [libraryFilter, setLibraryFilter] = useState('');
-    
+    const [quickPlateTarget, setQuickPlateTarget] = useState<string | null>(null);
     const [logDuration, setLogDuration] = useState<string>("60"); 
+    
+    // Warmup Selection State
+    const [warmupTargetExo, setWarmupTargetExo] = useState<number | null>(null);
 
     const isSessionComplete = useMemo(() => {
         if (!session) return false;
-        return session.exercises.every(ex => ex.sets.every(s => s.done));
+        if (session.exercises.length === 0) return false;
+        return session.exercises.every(ex => ex.sets.length > 0 && ex.sets.every(s => s.done));
     }, [session]);
 
     if (!session) return null;
 
-    const isLogMode = session.mode === 'log';
-
-    const getExerciseById = (id: number) => library.find(l => l.id === id);
-
-    const updateSet = (exoIdx: number, setIdx: number, field: keyof SetRecord, value: any) => {
-        const newSession = { ...session };
-        const exo = newSession.exercises[exoIdx];
-        const wasDone = exo.sets[setIdx].done;
-        
-        if (field === 'done' && value === true) {
-             const currentSet = exo.sets[setIdx];
-             if (!currentSet.weight || !currentSet.reps) {
-                 triggerHaptic('error');
-                 return; 
-             }
-        }
-
-        const updates: Partial<SetRecord> = { [field]: value };
-        if (field === 'done') {
-            if (value === true) {
-                updates.completedAt = Date.now();
-                triggerHaptic('success');
-            } else {
-                updates.completedAt = undefined;
-                triggerHaptic('click');
-            }
-        }
-        exo.sets[setIdx] = { ...exo.sets[setIdx], ...updates };
-        
-        if (!isLogMode && field === 'done' && value === true && !wasDone) {
-          setRestTarget(Date.now() + (exo.rest * 1000));
-        }
-        setSession(newSession);
-        storage.session.save(newSession);
-    };
-
-    const addSet = (exoIdx: number) => {
-        triggerHaptic('click');
-        const newSession = { ...session };
-        const exo = newSession.exercises[exoIdx];
-        const lastSet = exo.sets[exo.sets.length - 1];
-        exo.sets.push({ 
-            weight: lastSet ? lastSet.weight : "", 
-            reps: lastSet ? lastSet.reps : "", 
-            rir: lastSet ? lastSet.rir : "", 
-            done: false 
-        });
-        setSession(newSession);
-        storage.session.save(newSession);
-    };
-
-    const removeSet = (exoIdx: number, setIdx: number) => {
-        triggerHaptic('error');
-        const newSession = { ...session };
-        newSession.exercises[exoIdx].sets.splice(setIdx, 1);
-        setSession(newSession);
-        storage.session.save(newSession);
-    };
-
-    const removeExercise = (exoIdx: number) => {
-        confirm({
-            title: "SUPPRIMER ?",
-            message: "Voulez-vous retirer cet exercice de la séance ?",
-            variant: 'danger',
-            onConfirm: () => {
-                const newSession = { ...session };
-                newSession.exercises.splice(exoIdx, 1);
-                setSession(newSession);
-                storage.session.save(newSession);
-            }
-        });
-    };
-
-    const moveExercise = (from: number, to: number) => {
-        triggerHaptic('click');
-        const newSession = { ...session };
-        newSession.exercises = moveItem(newSession.exercises, from, to);
-        setSession(newSession);
-        storage.session.save(newSession);
-    };
-
-    const addExercise = (libExId: number) => {
-        const libEx = getExerciseById(libExId);
-        if (!libEx) return;
-        const newSession = { ...session };
-        newSession.exercises.push({
-            exerciseId: libExId,
-            target: "3 x 10",
-            rest: 90,
-            isBonus: true,
-            notes: "",
-            sets: Array(3).fill(null).map(() => ({ weight: "", reps: "", done: false, rir: "" }))
-        });
-        setSession(newSession);
-        storage.session.save(newSession);
-        setShowAddExoModal(false);
-        setLibraryFilter('');
-        triggerHaptic('success');
-    };
-
-    const handleFinishSession = () => {
-        triggerHaptic('success');
-        
-        let endTime = Date.now();
-        if (isLogMode) {
-            const dur = parseInt(logDuration) || 60;
-            endTime = session.startTime + (dur * 60 * 1000);
-        }
-
-        const finishedSession = { 
-            ...session, 
-            endTime: endTime
+    const activeExoStats = useMemo(() => {
+        if (!activeDetailExo) return null;
+        const exo = session.exercises[activeDetailExo.idx];
+        const libEx = getExerciseById(exo.exerciseId);
+        if (!libEx) return null;
+        return {
+            lib: libEx,
+            stats: getExerciseStats(libEx.id, history, libEx.type),
+            history: history.filter(h => h.exercises.some(e => e.exerciseId === libEx.id)).slice(0, 5)
         };
-        
-        setHistory(prev => [finishedSession, ...prev].sort((a,b) => b.startTime - a.startTime));
-        setSession(null);
-        setRestTarget(null);
-        navigate('/');
-        storage.session.save(null);
+    }, [activeDetailExo, session.exercises, history, library, getExerciseById]);
+
+    // Bloquer les caractères non désirés (- et e)
+    const preventNegative = (e: React.KeyboardEvent) => {
+        if (['-', 'e', 'E'].includes(e.key)) {
+            e.preventDefault();
+        }
     };
 
     return (
-      <div className="space-y-6 pb-24 animate-fade-in">
+      <div className="space-y-6 pb-24 animate-zoom-in">
+        {/* Header Section */}
         <div className="flex items-start justify-between">
             <div className="text-left">
                 <h2 className="text-2xl font-black italic uppercase leading-none">{session.sessionName}</h2>
@@ -177,156 +74,198 @@ export const WorkoutView: React.FC = () => {
                     {isLogMode && <span className="text-[9px] font-bold bg-secondary/20 text-secondary px-1.5 rounded uppercase">Mode Saisie</span>}
                 </div>
             </div>
-            <button onClick={() => setShowSessionSettings(true)} className="p-2 bg-surface2 rounded-xl text-secondary hover:text-primary transition-colors border border-transparent hover:border-primary/50">
+            <button onClick={() => setShowSessionSettings(true)} className="p-2 bg-surface2 rounded-xl text-secondary hover:text-white transition-colors border border-transparent hover:border-border">
                 <Icons.Settings size={20} />
             </button>
         </div>
         
+        {/* Exercises List */}
         {session.exercises.map((exo, exoIdx) => {
            const libEx = getExerciseById(exo.exerciseId);
            const isCardio = libEx?.type === 'Cardio';
-           const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
+           const isStatic = libEx?.type === 'Statique' || libEx?.type === 'Étirement';
            
-           // Stats retrieval
-           const stats = libEx ? getExerciseStats(libEx.id, history, libEx.type) : { lastSessionString: '-', prSessionString: '-', lastSessionTonnage: 0, lastBestSet: null, pr: 0 };
-
-           // CALCULATE CURRENT STATS (Filter out warmups)
-           const currentDoneSets = exo.sets.filter(s => s.done && !s.isWarmup);
-           const currentTonnage = currentDoneSets.reduce((acc, s) => acc + (parseFloat(s.weight)||0) * (parseFloat(s.reps)||0), 0);
-           const currentMaxE1RM = currentDoneSets.length > 0 ? Math.max(...currentDoneSets.map(s => calculate1RM(s.weight, s.reps))) : 0;
+           // Stats Calculations
+           const stats = libEx ? getExerciseStats(libEx.id, history, libEx.type) : { lastSessionString: '-', prSessionString: '-', lastSessionVolume: 0, lastBestSet: null, pr: 0 };
            
-           // Volume Delta
-           let volDelta = 0;
-           if (stats.lastSessionTonnage > 0 && currentTonnage > 0) {
-               volDelta = Math.round(((currentTonnage - stats.lastSessionTonnage) / stats.lastSessionTonnage) * 100);
-           }
-           const volColorClass = volDelta > 0 ? 'text-success bg-success/10 border-success/30' : (volDelta < 0 ? 'text-danger bg-danger/10 border-danger/30' : 'text-secondary bg-surface2 border-border');
-
-           // 1RM Delta (Current vs Last Session Best)
-           const lastE1RM = stats.lastBestSet?.e1rm || 0;
-           const diffE1RM = currentMaxE1RM > 0 && lastE1RM > 0 ? currentMaxE1RM - lastE1RM : 0;
-
-           // Next Goal Suggestion
-           let nextGoal = "-";
-           if (!isCardio && !isStatic && stats.lastBestSet) {
-               const { weight, reps } = stats.lastBestSet;
-               if (reps >= 12) {
-                   nextGoal = `${weight + 2.5}kg x ${reps}`;
-               } else {
-                   nextGoal = `${weight}kg x ${reps + 1}`;
+           // Current Session Metrics
+           const currentVolume = exo.sets.filter(s => s.done && !s.isWarmup).reduce((acc, s) => acc + (parseFloat(s.weight)||0) * (parseFloat(s.reps)||0), 0);
+           const currentBestE1RM = exo.sets.reduce((best, s) => {
+               if(s.done && !s.isWarmup) {
+                   const e = calculate1RM(s.weight, s.reps);
+                   return e > best ? e : best;
                }
-           }
+               return best;
+           }, 0);
+
+           // Deltas & Trends (Only relevant for Standard exercises in this compact view)
+           const tonDelta = currentVolume - stats.lastSessionVolume;
+           const tonPct = stats.lastSessionVolume > 0 ? Math.round((tonDelta / stats.lastSessionVolume) * 100) : 0;
+           const tonTrend = getTrend(currentVolume, stats.lastSessionVolume);
+           
+           const rmDelta = currentBestE1RM - (stats.lastBestSet?.e1rm || 0);
+           const rmPct = stats.lastBestSet?.e1rm ? Math.round((rmDelta / stats.lastBestSet.e1rm) * 100) : 0;
+           const rmTrend = getTrend(currentBestE1RM, stats.lastBestSet?.e1rm || 0);
 
            return (
              <SectionCard key={exoIdx} className="overflow-hidden">
-                {/* HEADER */}
-                <div className="p-3 bg-surface2/20 border-b border-border flex justify-between items-start">
-                   <div className="flex gap-3 items-center overflow-hidden w-full">
-                       <div className="flex flex-col gap-1 flex-shrink-0">
-                          {exoIdx > 0 && <button onClick={() => moveExercise(exoIdx, exoIdx - 1)} className="p-0.5 text-secondary hover:text-white"><Icons.ChevronUp size={14} /></button>}
-                          {exoIdx < session.exercises.length - 1 && <button onClick={() => moveExercise(exoIdx, exoIdx + 1)} className="p-0.5 text-secondary hover:text-white"><Icons.ChevronDown size={14} /></button>}
+                {/* Exercise Header */}
+                <div className="p-3 bg-surface2/20 border-b border-border">
+                   <div className="flex justify-between items-start mb-3">
+                       <div className="flex gap-3 items-center w-full overflow-hidden">
+                           <div className="flex flex-col gap-1 flex-shrink-0">
+                              {exoIdx > 0 && <button onClick={() => moveExercise(exoIdx, exoIdx - 1)} className="p-0.5 text-secondary hover:text-white"><Icons.ChevronUp size={14} /></button>}
+                              {exoIdx < session.exercises.length - 1 && <button onClick={() => moveExercise(exoIdx, exoIdx + 1)} className="p-0.5 text-secondary hover:text-white"><Icons.ChevronDown size={14} /></button>}
+                           </div>
+                           <div className="min-w-0 flex-1">
+                               <div className="font-black uppercase text-sm truncate">{libEx?.name || 'Inconnu'}</div>
+                               <div className="text-[10px] text-secondary flex justify-between items-center pr-2 mt-0.5">
+                                   <span>{exo.target} • {exo.rest}s</span>
+                               </div>
+                           </div>
                        </div>
-                       <div className="min-w-0 flex-1">
-                           <div className="font-black uppercase text-sm truncate">{libEx?.name || 'Inconnu'}</div>
-                           
-                           {/* HEADER INFO: TARGET & TONNAGE */}
-                           <div className="text-[10px] text-secondary flex justify-between items-center pr-2 mt-0.5">
-                               <span>Cible: {exo.target} • {exo.rest}s</span>
-                               <div className={`px-1.5 py-0.5 rounded border text-[9px] font-bold font-mono flex items-center gap-1 leading-none ${volColorClass}`}>
-                                    <span>{volDelta > 0 ? '▴' : (volDelta < 0 ? '▾' : '▸')}</span>
-                                    <span>Ton. {volDelta !== 0 ? `${Math.abs(volDelta)}%` : '-'}</span>
-                               </div>
-                           </div>
-                           
-                           {/* SMART STATS (Grid Layout) */}
-                           <div className="mt-2 grid grid-cols-2 gap-1.5">
-                               {/* Row 1: Last (Full Width) */}
-                               <div className="col-span-2 flex items-center gap-1.5 bg-surface2 border border-border rounded px-1.5 py-0.5 overflow-hidden">
-                                   <span className="text-[9px] font-black text-secondary uppercase flex-shrink-0">DER.</span>
-                                   <span className="text-[10px] font-mono text-secondary truncate">{stats.lastSessionString}</span>
-                               </div>
-
-                               {/* Row 2: E1RM & Obj */}
-                               <div className="flex items-center gap-1.5 bg-cyan1rm/10 border border-cyan1rm/30 rounded px-1.5 py-0.5 overflow-hidden">
-                                   <span className="text-[9px] font-black text-cyan1rm uppercase flex-shrink-0">1RM</span>
-                                   {!isCardio && !isStatic ? (
-                                       <span className="text-[10px] font-mono text-cyan1rm truncate flex gap-1 items-center">
-                                           {currentMaxE1RM > 0 ? `${currentMaxE1RM}kg` : '-'}
-                                           {diffE1RM !== 0 && (
-                                               <>
-                                                   <span className="text-secondary/50 mx-0.5">|</span>
-                                                   <span className={diffE1RM > 0 ? 'text-success' : 'text-danger'}>
-                                                       {diffE1RM > 0 ? '▴' : '▾'}{Math.abs(diffE1RM)}kg
-                                                   </span>
-                                               </>
-                                           )}
-                                       </span>
-                                   ) : (
-                                       <span className="text-[10px] font-mono text-cyan1rm">-</span>
-                                   )}
-                               </div>
-                               <div className="flex items-center gap-1.5 bg-purpleEquip/10 border border-purpleEquip/30 rounded px-1.5 py-0.5 overflow-hidden">
-                                   <span className="text-[9px] font-black text-purpleEquip uppercase flex-shrink-0">Obj.</span>
-                                   <span className="text-[10px] font-mono text-purpleEquip truncate">{!isCardio && !isStatic ? nextGoal : '-'}</span>
-                               </div>
-                           </div>
+                       
+                       {/* Tools Actions */}
+                       <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+                           {!isCardio && !isStatic && (
+                               <button onClick={() => setQuickPlateTarget(exo.sets[exo.sets.length-1]?.weight || "20")} className="p-2 rounded-lg text-secondary hover:text-white transition-colors">
+                                   <Icons.Disc size={18} />
+                               </button>
+                           )}
+                           <button onClick={() => { triggerHaptic('click'); setWarmupTargetExo(exoIdx); }} className="p-2 rounded-lg text-secondary hover:text-gold transition-colors">
+                               <Icons.Flame size={18} />
+                           </button>
+                           <button onClick={() => { triggerHaptic('click'); setActiveDetailExo({ idx: exoIdx, tab: 'info' }); }} className={`p-2 rounded-lg transition-colors ${exo.notes ? 'text-white bg-surface2' : 'text-secondary hover:text-white'}`}>
+                               <Icons.Search size={18} />
+                           </button>
+                           <button onClick={() => { triggerHaptic('error'); removeExercise(exoIdx); }} className="p-2 text-danger/50 hover:text-danger rounded-lg"><Icons.Trash size={18} /></button>
                        </div>
                    </div>
-                   <div className="flex items-center gap-1 flex-shrink-0 ml-1">
-                       <button onClick={() => { triggerHaptic('click'); setActiveDetailExo({ idx: exoIdx, tab: 'info' }); }} className={`p-2 rounded-lg transition-colors ${exo.notes ? 'text-primary bg-primary/10' : 'text-secondary hover:text-white'}`}>
-                           <Icons.Search size={18} />
-                       </button>
-                       <button onClick={() => { triggerHaptic('error'); removeExercise(exoIdx); }} className="p-2 text-danger/50 hover:text-danger rounded-lg"><Icons.Trash size={18} /></button>
+
+                   {/* Stats Grid (Aligned) */}
+                   <div className="grid grid-cols-2 gap-2 text-[10px]">
+                       {/* Column 1: History */}
+                       <div className="bg-surface2/30 rounded-lg p-2 border border-white/5 space-y-1">
+                           <div className="text-[8px] font-black uppercase text-secondary/50 mb-1 border-b border-white/5 pb-0.5">Historique</div>
+                           <div className="flex justify-between items-center h-4">
+                               <span className="text-secondary/70">Perf.</span>
+                               <span className="text-secondary font-mono font-bold truncate ml-2">{stats.lastSessionString}</span>
+                           </div>
+                           {!isCardio && !isStatic && (
+                               <>
+                                   <div className="flex justify-between items-center h-4">
+                                       <span className="text-secondary/70">1RM</span>
+                                       <span className="text-secondary font-mono font-bold">{Math.round(stats.lastBestSet?.e1rm || 0)} <span className="text-[8px] font-normal">kg</span></span>
+                                   </div>
+                                   <div className="flex justify-between items-center h-4">
+                                       <span className="text-secondary/70">Ton.</span>
+                                       <span className="text-secondary font-mono font-bold">{Math.round(stats.lastSessionVolume)} <span className="text-[8px] font-normal">kg</span></span>
+                                   </div>
+                               </>
+                           )}
+                       </div>
+
+                       {/* Column 2: Current Session */}
+                       <div className="bg-primary/5 rounded-lg p-2 border border-primary/5 space-y-1">
+                           <div className="text-[8px] font-black uppercase text-primary/50 mb-1 border-b border-primary/5 pb-0.5">Session</div>
+                           <div className="flex justify-between items-center h-4">
+                               <span className="text-primary/70">Perf.</span>
+                               <span className="text-primary/90 font-mono font-bold truncate ml-2 italic">{currentVolume > 0 || (isCardio || isStatic) ? "En cours..." : "-"}</span>
+                           </div>
+                           {!isCardio && !isStatic && (
+                               <>
+                                   <div className="flex justify-between items-center h-4">
+                                       <span className="text-primary/70">1RM</span>
+                                       <div className="flex items-center gap-1 font-mono font-bold">
+                                           <span className="text-primary/90">{Math.round(currentBestE1RM)} <span className="text-[8px] font-normal opacity-70">kg</span></span>
+                                           {stats.lastBestSet?.e1rm && currentBestE1RM > 0 ? (
+                                              <span className={`text-[8px] ${rmTrend.color}`}>
+                                                  {rmTrend.sym}{Math.abs(rmPct)}%
+                                              </span>
+                                           ) : null}
+                                       </div>
+                                   </div>
+                                   <div className="flex justify-between items-center h-4">
+                                       <span className="text-primary/70">Ton.</span>
+                                       <div className="flex items-center gap-1 font-mono font-bold">
+                                           <span className="text-primary/90">{Math.round(currentVolume)} <span className="text-[8px] font-normal opacity-70">kg</span></span>
+                                           {stats.lastSessionVolume > 0 && currentVolume > 0 && (
+                                               <span className={`text-[8px] ${tonTrend.color}`}>
+                                                   {tonTrend.sym}{Math.abs(tonPct)}%
+                                               </span>
+                                           )}
+                                       </div>
+                                   </div>
+                               </>
+                           )}
+                       </div>
                    </div>
                 </div>
 
-                {/* SETS LIST */}
+                {/* Sets List */}
                 <div className="p-2 space-y-2">
-                   {exo.sets.map((set, setIdx) => (
-                      <div key={setIdx} className={`grid grid-cols-12 gap-2 items-center ${set.done ? 'opacity-50' : ''}`}>
-                          {/* HORIZONTAL LAYOUT FOR TRASH + INDEX */}
-                          <div className="col-span-2 flex items-center justify-center gap-1">
-                              <button onClick={() => removeSet(exoIdx, setIdx)} className="w-5 h-5 flex items-center justify-center text-danger/30 hover:text-danger bg-danger/5 rounded"><Icons.Close size={10} /></button>
+                   {exo.sets.map((set, setIdx) => {
+                       return (
+                          <div key={setIdx} className={`grid grid-cols-12 gap-2 items-center ${set.done ? 'opacity-50' : ''} relative`}>
+                              {/* Left Controls */}
+                              <div className="col-span-2 flex flex-col items-center justify-center gap-1">
+                                  <div className="flex gap-1">
+                                      <button onClick={() => removeSet(exoIdx, setIdx)} className="w-5 h-5 flex items-center justify-center text-danger/30 hover:text-danger bg-danger/5 rounded"><Icons.Close size={10} /></button>
+                                      <button 
+                                        onClick={() => updateSet(exoIdx, setIdx, 'isWarmup', !set.isWarmup)} 
+                                        className={`w-6 h-6 flex items-center justify-center text-center font-mono text-[10px] font-bold rounded border transition-colors ${set.isWarmup ? 'text-warning bg-warning/10 border-warning' : 'text-secondary border-transparent bg-surface2/50'}`}
+                                      >
+                                          {set.isWarmup ? 'W' : setIdx + 1}
+                                      </button>
+                                  </div>
+                              </div>
+                              
+                              {/* Inputs */}
+                              <div className="col-span-3 relative">
+                                  <input 
+                                     type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "Lvl" : "kg"}
+                                     className="w-full bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-white/20 border border-transparent text-xs"
+                                     value={set.weight}
+                                     onChange={(e) => updateSet(exoIdx, setIdx, 'weight', e.target.value)}
+                                  />
+                              </div>
+                              <div className="col-span-3 relative">
+                                  <input 
+                                     type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "Dist" : isStatic ? "T (s)" : "reps"}
+                                     className="w-full bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-white/20 border border-transparent text-xs"
+                                     value={set.reps}
+                                     onChange={(e) => updateSet(exoIdx, setIdx, 'reps', e.target.value)}
+                                  />
+                              </div>
+                               <div className="col-span-2 relative">
+                                  <input 
+                                     type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "T (min)" : "RIR"}
+                                     className="w-full bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-white/20 border border-transparent text-xs"
+                                     value={set.rir || ''}
+                                     onChange={(e) => updateSet(exoIdx, setIdx, 'rir', e.target.value)}
+                                  />
+                               </div>
+
+                              {/* Validation Button with Timestamp */}
                               <button 
-                                onClick={() => updateSet(exoIdx, setIdx, 'isWarmup', !set.isWarmup)} 
-                                className={`w-6 h-6 flex items-center justify-center text-center font-mono text-[10px] font-bold rounded border transition-colors ${set.isWarmup ? 'text-warning bg-warning/10 border-warning' : 'text-secondary border-transparent bg-surface2/50'}`}
+                                 onClick={() => updateSet(exoIdx, setIdx, 'done', !set.done)}
+                                 className={`col-span-2 h-9 rounded-xl flex flex-col items-center justify-center transition-all relative ${set.done ? 'bg-success text-white scale-95' : 'bg-surface2 text-secondary hover:bg-surface2/80 active:scale-95'}`}
                               >
-                                  {set.isWarmup ? 'W' : setIdx + 1}
+                                 {set.done ? (
+                                     <>
+                                        <Icons.Check size={14} strokeWidth={3} />
+                                        {set.completedAt && (
+                                            <span className="text-[7px] font-mono font-bold leading-none mt-0.5 opacity-90">
+                                                {new Date(set.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </span>
+                                        )}
+                                     </>
+                                 ) : ''}
                               </button>
                           </div>
-                          
-                          <input 
-                             type="number" inputMode="decimal" placeholder={isCardio ? "Lvl" : "kg"}
-                             className="col-span-3 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent text-xs"
-                             value={set.weight}
-                             onChange={(e) => updateSet(exoIdx, setIdx, 'weight', e.target.value)}
-                          />
-                          <input 
-                             type="number" inputMode="decimal" placeholder={isCardio ? "Dist (m)" : isStatic ? "T (s)" : "reps"}
-                             className="col-span-3 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent text-xs"
-                             value={set.reps}
-                             onChange={(e) => updateSet(exoIdx, setIdx, 'reps', e.target.value)}
-                          />
-                           <input 
-                             type="number" inputMode="decimal" placeholder={isCardio ? "T (min)" : "RIR"}
-                             className="col-span-2 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent text-xs"
-                             value={set.rir || ''}
-                             onChange={(e) => updateSet(exoIdx, setIdx, 'rir', e.target.value)}
-                          />
-                          <button 
-                             onClick={() => updateSet(exoIdx, setIdx, 'done', !set.done)}
-                             className={`col-span-2 h-9 rounded-xl flex items-center justify-center transition-all relative ${set.done ? 'bg-success text-white' : 'bg-surface2 text-secondary'}`}
-                          >
-                             {set.done ? '✓' : ''}
-                             {!isLogMode && set.done && set.completedAt && (
-                                 <span className="absolute -bottom-2 right-0 text-[8px] font-mono text-secondary bg-surface rounded px-0.5 shadow-sm">
-                                     {new Date(set.completedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                                 </span>
-                             )}
-                          </button>
-                      </div>
-                   ))}
-                   <button onClick={() => addSet(exoIdx)} className="w-full py-2 bg-surface2/30 rounded-xl text-[10px] font-bold uppercase text-secondary border border-dashed border-border/50 hover:border-primary/50 transition-colors flex items-center justify-center gap-2">
+                       );
+                   })}
+                   <button onClick={() => addSet(exoIdx)} className="w-full py-2 bg-surface2/30 rounded-xl text-[10px] font-bold uppercase text-secondary border border-dashed border-border/50 hover:border-white/20 transition-colors flex items-center justify-center gap-2">
                       <Icons.Plus size={12} /> Série
                    </button>
                 </div>
@@ -334,23 +273,17 @@ export const WorkoutView: React.FC = () => {
            );
         })}
 
-        <button onClick={() => setShowAddExoModal(true)} className="w-full py-4 border-2 border-dashed border-border rounded-[2rem] text-secondary font-black uppercase hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2">
+        <button onClick={() => setShowAddExoModal(true)} className="w-full py-4 border-2 border-dashed border-border rounded-[2rem] text-secondary font-black uppercase hover:text-white hover:border-white transition-colors flex items-center justify-center gap-2">
             <Icons.Plus size={18} /> Ajouter Exercice
         </button>
 
-        {/* RESTORED: Session Control Buttons */}
         <div className="flex gap-4 pt-4">
-             <button onClick={() => {
-                 confirm({
-                     title: "ANNULER LA SÉANCE ?",
-                     message: "Voulez-vous vraiment annuler ?",
-                     subMessage: "Tout progrès non sauvegardé sera perdu.",
-                     variant: 'danger',
-                     onConfirm: () => { setSession(null); setRestTarget(null); navigate('/'); storage.session.save(null); }
-                 });
-             }} className="flex-1 py-4 bg-danger/10 text-danger font-black uppercase rounded-[2rem]">Annuler</button>
+             <button onClick={cancelSession} className="flex-1 py-4 bg-danger/10 text-danger font-black uppercase rounded-[2rem] border border-danger/20 hover:bg-danger/20 transition-all active:scale-95">Annuler</button>
              
-             <button onClick={() => setShowFinishModal(true)} className={`flex-1 py-4 font-black uppercase rounded-[2rem] shadow-lg transition-all flex flex-col items-center justify-center leading-none ${isSessionComplete ? 'bg-success text-white shadow-success/20' : 'bg-surface2 text-secondary border border-border'}`}>
+             <button 
+                onClick={() => setShowFinishModal(true)} 
+                className={`flex-1 py-4 font-black uppercase rounded-[2rem] shadow-lg transition-all flex flex-col items-center justify-center leading-none active:scale-95 ${isSessionComplete ? 'bg-success text-white shadow-success/20 animate-pulse-slow' : 'bg-surface2 text-secondary border border-border'}`}
+            >
                  <span>Terminer</span>
                  {!isSessionComplete && <span className="text-[9px] font-normal mt-1 opacity-70">Séries incomplètes</span>}
              </button>
@@ -367,56 +300,51 @@ export const WorkoutView: React.FC = () => {
                                  const d = new Date(e.target.value);
                                  const old = new Date(session.startTime);
                                  d.setHours(old.getHours(), old.getMinutes());
-                                 setSession({ ...session, startTime: d.getTime() });
+                                 updateSessionSettings(d.getTime(), session.bodyWeight, session.fatigue);
                              }} className="flex-1 bg-surface2 p-3 rounded-xl text-sm font-bold outline-none" />
                              <input type="time" value={new Date(session.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} onChange={e => {
                                  const [h, m] = e.target.value.split(':').map(Number);
                                  const d = new Date(session.startTime);
                                  d.setHours(h, m);
-                                 setSession({ ...session, startTime: d.getTime() });
+                                 updateSessionSettings(d.getTime(), session.bodyWeight, session.fatigue);
                              }} className="w-24 bg-surface2 p-3 rounded-xl text-sm font-bold outline-none" />
                         </div>
                     </div>
 
-                    {isLogMode && (
-                        <div className="space-y-2">
-                             <label className="text-[10px] uppercase text-secondary font-bold">Durée (minutes)</label>
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/30">
+                         <div className="space-y-2">
+                             <label className="text-[10px] uppercase text-secondary font-bold">
+                                 Durée (min) { !isLogMode && <span className="text-primary ml-1">(Chrono Actif)</span> }
+                             </label>
                              <input 
-                                type="number" inputMode="decimal"
-                                value={logDuration}
-                                onChange={e => setLogDuration(e.target.value)}
-                                className="w-full bg-surface2 p-3 rounded-xl text-lg font-mono font-bold outline-none focus:border-primary border border-transparent"
+                                 type="number" min="0" onKeyDown={preventNegative}
+                                 inputMode="decimal" 
+                                 value={logDuration} 
+                                 onChange={e => setLogDuration(e.target.value)} 
+                                 className={`w-full bg-surface2 p-3 rounded-xl text-sm font-bold outline-none ${!isLogMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                 disabled={!isLogMode}
                              />
-                             <p className="text-[10px] text-secondary">Indiquez la durée totale estimée.</p>
-                        </div>
-                    )}
-
-                    <div className="space-y-2">
-                        <label className="text-[10px] uppercase text-secondary font-bold">Poids de corps (kg)</label>
-                        <input 
-                            type="number" inputMode="decimal"
-                            value={session.bodyWeight} 
-                            onChange={e => setSession({ ...session, bodyWeight: e.target.value })} 
-                            className="w-full bg-surface2 p-3 rounded-xl text-lg font-mono font-bold outline-none focus:border-primary border border-transparent"
-                            placeholder="ex: 75.5"
-                        />
+                         </div>
+                         <div className="space-y-2">
+                             <label className="text-[10px] uppercase text-secondary font-bold">Poids (kg)</label>
+                             <input type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" value={session.bodyWeight} onChange={e => updateSessionSettings(session.startTime, e.target.value, session.fatigue)} className="w-full bg-surface2 p-3 rounded-xl text-sm font-bold outline-none" />
+                         </div>
                     </div>
-
+                    
                     <div className="space-y-2">
-                        <label className="text-[10px] uppercase text-secondary font-bold">Niveau de Forme (RPE)</label>
-                        <div className="flex flex-col gap-2">
-                            <div className="flex justify-between bg-surface2/50 p-2 rounded-2xl">
-                                 {[1, 2, 3, 4, 5].map(lvl => (
-                                     <button key={lvl} onClick={() => setSession({...session, fatigue: String(lvl)})} className={`w-10 h-10 rounded-xl font-black text-sm transition-all ${session.fatigue === String(lvl) ? 'scale-110 shadow-lg text-black' : 'text-secondary hover:bg-surface2'}`} style={{ backgroundColor: session.fatigue === String(lvl) ? FATIGUE_COLORS[String(lvl)] : 'transparent' }}>
-                                         {lvl}
-                                     </button>
-                                 ))}
-                            </div>
-                            <div className="flex justify-between px-2 text-[9px] text-secondary font-bold uppercase tracking-wider">
-                                <span>Épuisé</span>
-                                <span>En forme</span>
-                            </div>
-                        </div>
+                         <label className="text-[10px] uppercase text-secondary font-bold">Fatigue Ressentie</label>
+                         <div className="flex bg-surface2 rounded-xl overflow-hidden">
+                            {[1, 2, 3, 4, 5].map(v => (
+                                <button 
+                                    key={v}
+                                    onClick={() => updateSessionSettings(session.startTime, session.bodyWeight, String(v))}
+                                    className={`flex-1 py-3 text-xs font-bold ${session.fatigue === String(v) ? 'text-black' : 'text-secondary/30'}`}
+                                    style={{ backgroundColor: session.fatigue === String(v) ? FATIGUE_COLORS[v] : 'transparent' }}
+                                >
+                                    {v}
+                                </button>
+                            ))}
+                         </div>
                     </div>
                 </div>
             </Modal>
@@ -448,8 +376,7 @@ export const WorkoutView: React.FC = () => {
                      </div>
 
                      <div className="space-y-2">
-                        <p className="text-sm text-secondary">Confirmer la fin de la séance ?</p>
-                        <button onClick={handleFinishSession} className="w-full py-3 bg-success text-white font-black uppercase rounded-xl shadow-xl shadow-success/20 active:scale-95 transition-all">
+                        <button onClick={() => finishSession(logDuration)} className="w-full py-3 bg-success text-white font-black uppercase rounded-xl shadow-xl shadow-success/20 active:scale-95 transition-all">
                             Valider et Sauvegarder
                         </button>
                         <button onClick={() => setShowFinishModal(false)} className="w-full py-3 bg-surface2 text-secondary font-bold uppercase text-xs rounded-xl hover:bg-surface2/80 transition-colors">
@@ -460,124 +387,164 @@ export const WorkoutView: React.FC = () => {
             </Modal>
         )}
 
-        {/* DETAILS MODAL */}
-        {activeDetailExo && (() => {
-            const exo = session.exercises[activeDetailExo.idx];
-            const libEx = getExerciseById(exo.exerciseId);
-            const historyExo = history.filter(h => h.exercises.some(e => e.exerciseId === exo.exerciseId)).slice(0, 5);
+        {/* WARMUP SELECTION MODAL */}
+        {warmupTargetExo !== null && (
+            <Modal title="Échauffement" onClose={() => setWarmupTargetExo(null)}>
+                <div className="space-y-6 text-center">
+                    <div className="flex flex-col items-center gap-2 mb-2">
+                        <Icons.Flame size={32} className="text-gold" />
+                        <p className="text-sm font-bold text-white">Combien de séries ?</p>
+                        <p className="text-xs text-secondary">Basé sur la charge de travail actuelle.</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                        {[1, 2, 3].map(count => (
+                            <button 
+                                key={count} 
+                                onClick={() => { 
+                                    generateWarmup(warmupTargetExo, count); 
+                                    setWarmupTargetExo(null); 
+                                }}
+                                className="bg-surface2 hover:bg-surface2/80 p-4 rounded-2xl flex flex-col items-center gap-1 transition-all active:scale-95"
+                            >
+                                <span className="text-2xl font-black text-white">{count}</span>
+                                <span className="text-[9px] uppercase text-secondary font-bold">Série{count > 1 ? 's' : ''}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </Modal>
+        )}
 
-            return (
-                <Modal title={libEx?.name || 'Détails'} onClose={() => setActiveDetailExo(null)}>
-                    <div className="space-y-4">
-                        <div className="flex bg-surface2 rounded-xl p-1 gap-1">
-                             {['info', 'history', 'notes'].map((t) => (
-                                 <button key={t} onClick={() => setActiveDetailExo({ ...activeDetailExo, tab: t as any })} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeDetailExo.tab === t ? 'bg-primary text-background shadow-lg' : 'text-secondary hover:text-white'}`}>
-                                     {t === 'info' ? 'Infos' : t === 'history' ? 'Historique' : 'Notes'}
-                                 </button>
-                             ))}
-                        </div>
+        {/* QUICK PLATE MODAL */}
+        {quickPlateTarget && (
+            <QuickPlateModal targetWeight={quickPlateTarget} onClose={() => setQuickPlateTarget(null)} />
+        )}
 
-                        {activeDetailExo.tab === 'info' && libEx && (
-                            <div className="space-y-4">
-                                <div className="flex gap-2">
-                                    <span className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-surface2 text-secondary">{libEx.muscle}</span>
-                                    <span className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-surface2" style={{ color: TYPE_COLORS[libEx.type] }}>{libEx.type}</span>
-                                    <span className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-surface2 text-secondary">{EQUIPMENTS[libEx.equipment]}</span>
-                                </div>
-                                {libEx.tips && (
-                                    <div className="space-y-3 text-sm">
-                                        {libEx.tips.setup && <div className="bg-surface2/30 p-3 rounded-xl"><h4 className="font-bold text-xs uppercase text-primary mb-1">Setup</h4><ul className="list-disc list-inside text-secondary/80 text-xs">{libEx.tips.setup.map((s, i) => <li key={i}>{s}</li>)}</ul></div>}
-                                        {libEx.tips.exec && <div className="bg-surface2/30 p-3 rounded-xl"><h4 className="font-bold text-xs uppercase text-success mb-1">Exécution</h4><ul className="list-disc list-inside text-secondary/80 text-xs">{libEx.tips.exec.map((s, i) => <li key={i}>{s}</li>)}</ul></div>}
-                                        {libEx.tips.mistake && <div className="bg-surface2/30 p-3 rounded-xl"><h4 className="font-bold text-xs uppercase text-danger mb-1">Erreurs</h4><ul className="list-disc list-inside text-secondary/80 text-xs">{libEx.tips.mistake.map((s, i) => <li key={i}>{s}</li>)}</ul></div>}
+        {/* EXERCISE DETAIL MODAL */}
+        {activeDetailExo && activeExoStats && (
+            <Modal title={activeExoStats.lib.name} onClose={() => setActiveDetailExo(null)}>
+                <div className="space-y-6">
+                    <div className="flex bg-surface2 p-1 rounded-xl">
+                        {(['info', 'history', 'notes'] as const).map(tab => (
+                            <button 
+                                key={tab} 
+                                onClick={() => setActiveDetailExo({ ...activeDetailExo, tab })}
+                                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all ${activeDetailExo.tab === tab ? 'bg-primary text-background shadow-sm' : 'text-secondary hover:text-white'}`}
+                            >
+                                {tab === 'info' ? 'Infos' : tab === 'history' ? 'Historique' : 'Notes'}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="min-h-[200px]">
+                        {activeDetailExo.tab === 'info' && (
+                            <div className="space-y-4 animate-fade-in">
+                                {activeExoStats.lib.type === 'Cardio' ? (
+                                    // CARDIO STATS
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-surface2/30 p-3 rounded-xl border border-white/5">
+                                            <div className="text-[9px] uppercase text-secondary">Dist. Max</div>
+                                            <div className="text-xl font-black text-white">{activeExoStats.stats.maxDistance} <span className="text-xs text-secondary font-normal">m</span></div>
+                                            <div className="text-[8px] text-secondary/50 mt-1">Meilleure distance</div>
+                                        </div>
+                                        <div className="bg-surface2/30 p-3 rounded-xl border border-white/5">
+                                            <div className="text-[9px] uppercase text-secondary">Temps Max</div>
+                                            <div className="text-xl font-black text-white">{formatDuration(activeExoStats.stats.maxDuration)}</div>
+                                            <div className="text-[8px] text-secondary/50 mt-1">Plus longue séance</div>
+                                        </div>
+                                    </div>
+                                ) : (activeExoStats.lib.type === 'Statique' || activeExoStats.lib.type === 'Étirement') ? (
+                                    // STATIQUE STATS
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-surface2/30 p-3 rounded-xl border border-white/5">
+                                            <div className="text-[9px] uppercase text-secondary">Temps Max</div>
+                                            <div className="text-xl font-black text-white">{formatDuration(activeExoStats.stats.maxDuration)}</div>
+                                            <div className="text-[8px] text-secondary/50 mt-1">Record de tenue</div>
+                                        </div>
+                                        <div className="bg-surface2/30 p-3 rounded-xl border border-white/5">
+                                            <div className="text-[9px] uppercase text-secondary">Lest Max</div>
+                                            <div className="text-xl font-black text-white">{activeExoStats.stats.prMax} <span className="text-xs text-secondary font-normal">kg</span></div>
+                                            <div className="text-[8px] text-secondary/50 mt-1">Surcharge maximale</div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // STANDARD STATS (Poly/Iso)
+                                    <div className="grid grid-cols-2 gap-4">
+                                         <div className="bg-surface2/30 p-3 rounded-xl border border-white/5">
+                                             <div className="text-[9px] uppercase text-secondary">Record</div>
+                                             <div className="text-xl font-black text-white">{activeExoStats.stats.pr} <span className="text-xs text-secondary font-normal">kg</span></div>
+                                             <div className="text-[8px] text-secondary/50 mt-1">Meilleur 1RM théorique</div>
+                                         </div>
+                                         <div className="bg-surface2/30 p-3 rounded-xl border border-white/5">
+                                             <div className="text-[9px] uppercase text-secondary">Max</div>
+                                             <div className="text-xl font-black text-white">{activeExoStats.stats.prMax} <span className="text-xs text-secondary font-normal">kg</span></div>
+                                             <div className="text-[8px] text-secondary/50 mt-1">Poids réel le plus lourd</div>
+                                         </div>
                                     </div>
                                 )}
-                                <div className="bg-warning/10 border border-warning/20 p-3 rounded-xl">
-                                    <h4 className="font-bold text-xs uppercase text-warning mb-1 flex items-center gap-1"><span className="w-4 h-4 bg-warning text-black rounded flex items-center justify-center text-[10px]">W</span> Échauffement</h4>
-                                    <p className="text-secondary/80 text-xs leading-relaxed">
-                                        Cliquez sur le numéro d'une série pour la passer en <span className="text-warning font-bold">Warmup</span> (W). 
-                                        Ces séries sont exclues de vos statistiques (Volume, 1RM).
+                                
+                                <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Icons.Flame size={14} className="text-blue-400" />
+                                        <span className="text-xs font-bold text-blue-400 uppercase">Échauffement Intelligent</span>
+                                    </div>
+                                    <p className="text-[10px] text-secondary leading-relaxed">
+                                        Cliquez sur la <strong>Flamme</strong> pour ajouter 1 à 3 séries de montée en gamme (50%, 70%, 90% de la charge de travail).
+                                        <br/><br/>
+                                        Cliquez sur le <strong>numéro d'une série</strong> pour la marquer en <span className="text-warning">Warmup (W)</span>. Ces séries ne comptent pas dans votre volume global.
                                     </p>
                                 </div>
-                            </div>
-                        )}
 
-                        {activeDetailExo.tab === 'history' && (
-                            <div className="space-y-3">
-                                {/* PR SECTION IN HISTORY TAB */}
-                                {getExerciseStats(exo.exerciseId, history, libEx?.type).pr > 0 && (
-                                    <div className="bg-gold/10 border border-gold/30 p-3 rounded-xl">
-                                        <div className="flex justify-between items-center mb-1">
-                                             <span className="text-[10px] font-black uppercase text-gold flex items-center gap-1"><Icons.Star size={10} fill="currentColor" /> Record Personnel (PR)</span>
-                                             <span className="text-[10px] font-bold text-cyan1rm">1RM: {getExerciseStats(exo.exerciseId, history, libEx?.type).pr}kg</span>
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-bold uppercase text-secondary border-b border-border/50 pb-1">Conseils Techniques</h4>
+                                    {activeExoStats.lib.tips ? (
+                                        <div className="text-sm space-y-3">
+                                            {activeExoStats.lib.tips.setup && <div><span className="text-primary font-bold text-xs uppercase block mb-1">Setup</span> <span className="text-secondary-foreground">{activeExoStats.lib.tips.setup.join('. ')}.</span></div>}
+                                            {activeExoStats.lib.tips.exec && <div><span className="text-primary font-bold text-xs uppercase block mb-1">Exécution</span> <span className="text-secondary-foreground">{activeExoStats.lib.tips.exec.join('. ')}.</span></div>}
+                                            {activeExoStats.lib.tips.mistake && <div><span className="text-danger font-bold text-xs uppercase block mb-1">À éviter</span> <span className="text-secondary-foreground">{activeExoStats.lib.tips.mistake.join('. ')}.</span></div>}
                                         </div>
-                                        <div className="font-mono text-xs text-white bg-surface2/50 p-1.5 rounded-lg border border-gold/20">
-                                            {getExerciseStats(exo.exerciseId, history, libEx?.type).prSessionString}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="space-y-2">
-                                    {historyExo.map((h, i) => {
-                                        const hEx = h.exercises.find(e => e.exerciseId === exo.exerciseId);
-                                        if (!hEx) return null;
-                                        const doneSets = hEx.sets.filter(s => s.done);
-                                        if (doneSets.length === 0) return null;
-                                        
-                                        const isCardio = libEx?.type === 'Cardio';
-                                        const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
-                                        
-                                        const weightStr = doneSets.map(st => (st.isWarmup ? 'W' : '') + st.weight).join(',');
-                                        const repStr = doneSets.map(st => (st.isWarmup ? 'W' : '') + (isStatic ? formatDuration(parseDuration(st.reps)) : st.reps)).join(',');
-                                        const rirStr = doneSets.map(st => isCardio ? formatDuration(st.rir || '0') : (st.rir || '-')).join(',');
-
-                                        return (
-                                            <div key={i} className="bg-surface2/30 p-3 rounded-xl text-xs">
-                                                <div className="flex justify-between mb-1">
-                                                    <span className="font-bold text-white">{new Date(h.startTime).toLocaleDateString()}</span>
-                                                    <span className="text-secondary">{h.sessionName}</span>
-                                                </div>
-                                                <div className="font-mono text-secondary">
-                                                    {weightStr} {isCardio ? "Lvl" : "kg"} x {repStr} {isCardio ? "m" : isStatic ? "s" : "reps"}
-                                                    <div className="text-[10px] mt-0.5 opacity-70">| {isCardio ? "" : "RIR "}{rirStr}</div>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                    {historyExo.length === 0 && <div className="text-center text-secondary py-4">Aucun historique.</div>}
+                                    ) : <div className="text-secondary italic text-xs">Aucun conseil disponible.</div>}
                                 </div>
                             </div>
                         )}
-
+                        {activeDetailExo.tab === 'history' && (
+                            <div className="space-y-3 animate-fade-in">
+                                {activeExoStats.history.length > 0 ? activeExoStats.history.map(h => (
+                                    <div key={h.id} className="bg-surface2/30 p-3 rounded-xl">
+                                        <div className="flex justify-between items-end mb-1">
+                                            <div className="text-[10px] uppercase text-secondary">{new Date(h.startTime).toLocaleDateString()}</div>
+                                            <div className="text-[10px] font-bold">{h.sessionName}</div>
+                                        </div>
+                                        <div className="font-mono text-sm">{getExerciseStats(activeExoStats.lib.id, [h], activeExoStats.lib.type).lastSessionString}</div>
+                                    </div>
+                                )) : <div className="text-center text-secondary py-4 italic">Aucun historique</div>}
+                            </div>
+                        )}
                         {activeDetailExo.tab === 'notes' && (
-                             <div className="space-y-2">
+                            <div className="animate-fade-in">
                                 <textarea 
-                                    autoFocus
-                                    className="w-full bg-surface2/50 p-3 rounded-xl text-xs outline-none border border-border focus:border-primary h-32" 
-                                    placeholder="Notes personnelles pour cet exercice..." 
-                                    value={exo.notes} 
-                                    onChange={(e) => {
-                                        const newSess = {...session};
-                                        newSess.exercises[activeDetailExo.idx].notes = e.target.value;
-                                        setSession(newSess);
-                                    }}
+                                    className="w-full h-32 bg-surface2/30 p-3 rounded-xl outline-none text-sm resize-none" 
+                                    placeholder="Notes personnelles pour cet exercice..."
+                                    value={session.exercises[activeDetailExo.idx].notes}
+                                    onChange={(e) => updateExerciseNotes(activeDetailExo.idx, e.target.value)}
                                 />
-                                <p className="text-[10px] text-secondary">Ces notes sont spécifiques à cette séance.</p>
-                             </div>
+                            </div>
                         )}
                     </div>
-                </Modal>
-            );
-        })()}
+                </div>
+            </Modal>
+        )}
 
+        {/* Add Exercise Modal */}
         {showAddExoModal && (
             <Modal title="Ajouter Exercice" onClose={() => { setShowAddExoModal(false); setLibraryFilter(''); }}>
                 <div className="space-y-4">
                 <input placeholder="Rechercher..." className="w-full bg-surface2 p-3 rounded-2xl outline-none" onChange={(e) => setLibraryFilter(e.target.value)} autoFocus />
                 <div className="max-h-60 overflow-y-auto space-y-2">
                     {library.filter(l => !l.isArchived && ((l.name || '').toLowerCase().includes(libraryFilter.toLowerCase()) || (l.muscle || '').toLowerCase().includes(libraryFilter.toLowerCase()))).sort((a,b) => (a.isFavorite === b.isFavorite) ? (a.name || '').localeCompare(b.name || '') : (a.isFavorite ? -1 : 1)).map(l => (
-                        <button key={l.id} onClick={() => addExercise(l.id)} className="w-full p-3 bg-surface2/50 rounded-2xl text-left hover:bg-surface2 transition-colors flex justify-between items-center group">
-                        <div className="flex-1"><div className="flex items-center gap-2">{l.isFavorite && <span className="text-gold"><Icons.Star /></span>}<div className="font-bold text-sm group-hover:text-primary transition-colors">{l.name}</div></div><div className="text-[10px] text-secondary uppercase mt-1 flex gap-2"><span>{l.muscle} • {EQUIPMENTS[l.equipment as keyof typeof EQUIPMENTS]}</span><span style={{ color: TYPE_COLORS[l.type as keyof typeof TYPE_COLORS] }}>● {l.type}</span></div></div>
-                        <div className="text-xl text-primary font-black">+</div>
+                        <button key={l.id} onClick={() => { addExercise(l.id); setShowAddExoModal(false); setLibraryFilter(''); }} className="w-full p-3 bg-surface2/50 rounded-2xl text-left hover:bg-surface2 transition-colors flex justify-between items-center group">
+                        <div className="flex-1"><div className="flex items-center gap-2">{l.isFavorite && <span className="text-gold"><Icons.Star /></span>}<div className="font-bold text-sm group-hover:text-white transition-colors">{l.name}</div></div><div className="text-[10px] text-secondary uppercase mt-1 flex gap-2"><span>{l.muscle} • {EQUIPMENTS[l.equipment as keyof typeof EQUIPMENTS]}</span><span style={{ color: TYPE_COLORS[l.type as keyof typeof TYPE_COLORS] }}>● {l.type}</span></div></div>
+                        <div className="text-xl text-white font-black">+</div>
                         </button>
                     ))}
                 </div>

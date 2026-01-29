@@ -3,10 +3,13 @@
   "name": "IronTracker",
   "short_name": "IronTracker",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
-  "background_color": "#0d1117",
-  "theme_color": "#0d1117",
+  "background_color": "#020617",
+  "theme_color": "#020617",
   "orientation": "portrait",
+  "description": "Carnet de musculation local-first et minimaliste.",
+  "categories": ["fitness", "health", "sports"],
   "icons": [
     {
       "src": "/icon.svg",
@@ -18,6 +21,29 @@
       "type": "image/svg+xml",
       "sizes": "512x512",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "S'entraîner",
+      "short_name": "Workout",
+      "description": "Lancer la séance en cours",
+      "url": "/#/workout",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Programmes",
+      "short_name": "Programmes",
+      "description": "Gérer mes routines",
+      "url": "/#/programs",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Stats",
+      "short_name": "Stats",
+      "description": "Voir ma progression",
+      "url": "/#/analytics",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
     }
   ]
 }

@@ -173,7 +173,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "name": "Seal Row",
       "type": "Polyarticulaire",
       "muscle": "Dos",
-      "equipment": "OT",
+      "equipment": "BB",
       "tips": { "setup": ["Allongé sur banc surélevé", "Haltères au sol"], "exec": ["Tirer les coudes vers le haut", "Zéro élan"], "mistake": ["Banc trop bas", "Amplitude incomplète"] }
     },
     {
@@ -449,7 +449,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
     {
       "id": 61,
       "name": "Plank",
-      "type": "Isométrique",
+      "type": "Statique",
       "muscle": "Abdos",
       "equipment": "BW",
       "tips": { "setup": ["Appui avant-bras/orteils", "Corps aligné"], "exec": ["Serrer fesses et abdos", "Respirer"], "mistake": ["Dos creusé (Danger!)", "Fesses trop hautes"] }
@@ -631,7 +631,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
     {
       "id": 66,
       "name": "Front Lever",
-      "type": "Isométrique",
+      "type": "Statique",
       "muscle": "Dos",
       "equipment": "BW",
       "tips": { "setup": ["Suspension barre", "Bras tendus"], "exec": ["Corps parallèle au sol", "Rétraction scapulaire"], "mistake": ["Bras pliés", "Hanches cassées"] }
@@ -639,7 +639,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
     {
       "id": 67,
       "name": "Back Lever",
-      "type": "Isométrique",
+      "type": "Statique",
       "muscle": "Dos",
       "equipment": "BW",
       "tips": { "setup": ["Suspension inversée", "Skin the cat"], "exec": ["Descendre à l'horizontale", "Regard vers le sol"], "mistake": ["Creuser le dos", "Lâcher les épaules"] }
@@ -647,7 +647,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
     {
       "id": 68,
       "name": "Full Planche",
-      "type": "Isométrique",
+      "type": "Statique",
       "muscle": "Épaules",
       "equipment": "BW",
       "tips": { "setup": ["Mains au sol", "Lean en avant"], "exec": ["Décoller les pieds", "Corps parallèle au sol"], "mistake": ["Bras pliés", "Hanches trop hautes"] }
@@ -655,7 +655,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
     {
       "id": 69,
       "name": "Handstand Hold",
-      "type": "Isométrique",
+      "type": "Statique",
       "muscle": "Épaules",
       "equipment": "BW",
       "tips": { "setup": ["Mains largeur épaules", "Doigts écartés"], "exec": ["Pousser le sol (Grandir)", "Regard entre les mains"], "mistake": ["Marcher avec les mains", "Dos banane"] }
@@ -663,7 +663,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
     {
       "id": 70,
       "name": "Human Flag",
-      "type": "Isométrique",
+      "type": "Statique",
       "muscle": "Abdos",
       "equipment": "BW",
       "tips": { "setup": ["Prise mixte espalier/poteau"], "exec": ["Bras du bas pousse, bras du haut tire", "Corps latéral"], "mistake": ["Hanches qui tournent", "Bras pliés"] }

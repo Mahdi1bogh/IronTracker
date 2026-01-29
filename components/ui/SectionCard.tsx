@@ -8,7 +8,7 @@ interface SectionCardProps {
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({ children, className = "", radius = "rounded-[2rem]" }) => (
-    <div className={`bg-surface border border-border shadow-sm ${radius} ${className}`}>
+    <div className={`glass shadow-sm ${radius} ${className}`}>
         {children}
     </div>
 );

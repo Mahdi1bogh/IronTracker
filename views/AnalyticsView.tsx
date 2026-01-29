@@ -1,620 +1,592 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { ChartContainer, CHART_CONFIG } from '../components/ui/ChartContainer';
-import { Modal } from '../components/ui/Modal';
 import { Icons } from '../components/Icons';
-import { TYPE_COLORS } from '../constants';
-import { triggerHaptic, calculate1RM } from '../utils';
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, LineChart, Line, Cell, ComposedChart, PieChart, Pie, Radar, RadarChart, PolarGrid, PolarAngleAxis, ReferenceArea, LabelList } from 'recharts';
-import { EXERCISE_TYPE_LIST } from '../data/exerciseTypes';
-import { EQUIPMENTS } from '../data/equipments';
+import { SectionCard } from '../components/ui/SectionCard';
 import { PALETTE } from '../styles/tokens';
+import { calculate1RM, triggerHaptic, parseDuration, formatDuration } from '../utils';
+import { MUSCLE_COLORS, TYPE_COLORS } from '../constants';
+import { ExerciseType } from '../types';
+import { 
+    AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, 
+    RadarChart, PolarGrid, PolarAngleAxis, Radar, 
+    BarChart, Bar, Cell, LineChart, Line, YAxis, CartesianGrid,
+    ComposedChart, ReferenceArea, PieChart, Pie, Legend
+} from 'recharts';
 
-// Helper consts
-const MUSCLE_COLORS: Record<string, string> = {
-  'Pectoraux': PALETTE.muscle.pecs, 
-  'Dos': PALETTE.muscle.back, 
-  'Jambes': PALETTE.muscle.legs, 
-  'Épaules': PALETTE.muscle.shoulders,
-  'Bras': PALETTE.muscle.arms, 
-  'Abdos': PALETTE.muscle.abs, 
-  'Mollets': PALETTE.muscle.calves, 
-  'Avant-bras': PALETTE.muscle.forearms, 
-  'Cardio': PALETTE.muscle.cardio, 
-  'Cou': PALETTE.muscle.neck
+const MUSCLE_ORDER = ['Pectoraux', 'Dos', 'Épaules', 'Bras', 'Abdos', 'Jambes'];
+const TYPE_ORDER = ['Polyarticulaire', 'Isolation', 'Cardio', 'Statique'];
+
+// Mapping Equipment -> New Category Names
+const EQUIP_CAT_MAP: Record<string, string> = {
+    'BB': 'Lib. 2m.', 'EZ': 'Lib. 2m.', 'TB': 'Lib. 2m.',
+    'DB': 'Lib. 1m.', 'KB': 'Lib. 1m.', 'PL': 'Lib. 1m.',
+    'EM': 'Machine', 'SM': 'Machine',
+    'CB': 'Poulie',
+    'BW': 'PDC',
+    'RB': 'Divers', 'OT': 'Divers'
 };
-const MUSCLE_ORDER = ['Pectoraux', 'Dos', 'Épaules', 'Bras', 'Avant-bras', 'Abdos', 'Jambes', 'Mollets', 'Cou', 'Cardio'];
 
-const PERIODS = [
-    { key: '7d', label: '7J' },
-    { key: '30d', label: '30J' },
-    { key: '90d', label: '90J' },
-    { key: '1y', label: '1A' },
-    { key: 'all', label: '∞' }
+// Colors for New Categories
+const CAT_COLORS: Record<string, string> = {
+    'Lib. 2m.': PALETTE.accents.blue.primary,
+    'Lib. 1m.': PALETTE.accents.red.primary,    
+    'Machine': PALETTE.accents.orange.primary, 
+    'Poulie': PALETTE.accents.purple.primary,  
+    'PDC': PALETTE.accents.emerald.primary,
+    'Divers': PALETTE.accents.gray.primary
+};
+
+// Legend Details for Tooltip
+const LEGEND_DETAILS = [
+    { label: 'Lib. 2m.', desc: 'BB, EZ, TB' },
+    { label: 'Lib. 1m.', desc: 'DB, KB, Disque' },
+    { label: 'Machine', desc: 'Machine, Smith' },
+    { label: 'Poulie', desc: 'Câble' },
+    { label: 'PDC', desc: 'Poids du corps' },
+    { label: 'Divers', desc: 'Élastique, Autre' }
 ];
 
-const SBD_IDS = [33, 1, 20]; // Squat, Bench, Deadlift IDs
-
-// Reusable Segmented Control Component for consistency (KISS)
-const SegmentedControl = ({ options, value, onChange }: { options: { id: string, label: string }[], value: string, onChange: (val: string) => void }) => (
-    <div className="bg-surface2 p-1 rounded-xl flex gap-1">
-        {options.map(opt => (
-            <button 
-                key={opt.id} 
-                onClick={() => { triggerHaptic('click'); onChange(opt.id); }} 
-                className={`flex-1 py-2 px-2 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${value === opt.id ? 'bg-primary text-background shadow-sm' : 'text-secondary hover:text-white'}`}
-            >
-                {opt.label}
-            </button>
-        ))}
-    </div>
-);
+// SBD Elite Standards (for Chart Normalization only)
+const SBD_STANDARDS = { S: 2.2, B: 1.7, D: 2.8 };
 
 export const AnalyticsView: React.FC = () => {
     const navigate = useNavigate();
     const history = useStore(s => s.history);
     const library = useStore(s => s.library);
+    const accentColor = useStore(s => s.accentColor);
 
-    const [analyticsTab, setAnalyticsTab] = useState<'micro' | 'macro' | 'physio' | 'habits'>('micro');
-    const [analyticsPeriod, setAnalyticsPeriod] = useState<'7d'|'30d'|'90d'|'1y'|'all'>('30d');
-    
-    // Multi-select state for exercises
-    const [selectedExos, setSelectedExos] = useState<number[]>([]);
-    
-    const [analyticsMetric, setAnalyticsMetric] = useState<'1rm'|'max'|'volume'|'tonnage'>('1rm');
-    const [volumeChartMode, setVolumeChartMode] = useState<'muscle' | 'type'>('muscle');
-    const [habitsMode, setHabitsMode] = useState<'freq' | 'duration'>('freq');
-    const [showExoPicker, setShowExoPicker] = useState(false);
-    const [libraryFilter, setLibraryFilter] = useState('');
-    const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
+    const primaryColor = PALETTE.accents[accentColor]?.primary || PALETTE.accents.blue.primary;
 
-    const getExerciseById = (id: number) => library.find(l => l.id === id);
+    const [period, setPeriod] = useState<'7d'|'30d'|'90d'>('30d');
+    const [selectedDetailExo, setSelectedDetailExo] = useState<number>(33); 
+    const [detailMetric, setDetailMetric] = useState<'1rm' | 'max' | 'volume' | 'tonnage'>('1rm');
+    const [volumeMode, setVolumeMode] = useState<'muscle' | 'type'>('muscle');
 
-    const getFilterTime = () => {
+    // Identify if selected exercise is Static/Cardio (Time based)
+    const selectedLib = useMemo(() => library.find(l => l.id === selectedDetailExo), [library, selectedDetailExo]);
+    const isTimeBased = selectedLib ? (selectedLib.type === 'Statique' || selectedLib.type === 'Étirement') : false;
+    const isCardio = selectedLib?.type === 'Cardio';
+
+    // Auto-switch metric to "max" (Temps/Dist) when switching to a Time-based exercise 
+    // because "1rm" (Lest) is often 0 for these exercises.
+    useEffect(() => {
+        if ((isTimeBased || isCardio) && detailMetric === '1rm') {
+            setDetailMetric('max');
+        }
+    }, [selectedDetailExo, isTimeBased, isCardio]);
+
+    const getCutoff = () => {
         const now = Date.now();
-        switch(analyticsPeriod) {
-            case '7d': return now - 7 * 24 * 3600 * 1000;
-            case '30d': return now - 30 * 24 * 3600 * 1000;
-            case '90d': return now - 90 * 24 * 3600 * 1000;
-            case '1y': return now - 365 * 24 * 3600 * 1000;
-            case 'all': return 0;
-        }
+        const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+        return now - (days * 24 * 3600 * 1000);
     };
 
-    // --- SBD Logic ---
-    const isSBDSelected = useMemo(() => {
-        return SBD_IDS.every(id => selectedExos.includes(id)) && selectedExos.length === 3;
-    }, [selectedExos]);
+    const relevantHistory = useMemo(() => {
+        const cutoff = getCutoff();
+        return history.filter(s => s.startTime >= cutoff).sort((a,b) => a.startTime - b.startTime);
+    }, [history, period]);
 
-    const sbdStats = useMemo(() => {
-        if (!isSBDSelected) return null;
-        
-        const minTime = getFilterTime();
-        const relevantHistory = history.filter(s => s.startTime >= minTime);
-        const stats = { S: 0, B: 0, D: 0, Total: 0, Ratio: 0 };
-        
-        // Find max 1RM for each lift in period (excluding warmups)
-        [33, 1, 20].forEach((id, idx) => {
-             let maxLift = 0;
-             relevantHistory.forEach(s => {
-                 const ex = s.exercises.find((e:any) => e.exerciseId === id);
-                 if (ex) {
-                     ex.sets.forEach((st:any) => {
-                         if (st.done && !st.isWarmup) {
-                             const e1rm = calculate1RM(st.weight, st.reps);
-                             if (e1rm > maxLift) maxLift = e1rm;
-                         }
-                     });
-                 }
-             });
-             if (idx === 0) stats.S = maxLift;
-             if (idx === 1) stats.B = maxLift;
-             if (idx === 2) stats.D = maxLift;
-        });
+    const overviewStats = useMemo(() => {
+        const totalSessions = relevantHistory.length;
+        const totalSets = relevantHistory.reduce((acc, s) => acc + s.exercises.reduce((ac, e) => ac + e.sets.filter(st => st.done && !st.isWarmup).length, 0), 0);
+        const totalTonnage = relevantHistory.reduce((acc, s) => {
+            return acc + s.exercises.reduce((ac, e) => {
+                const lib = library.find(l => l.id === e.exerciseId);
+                // Exclude Cardio/Iso from Tonnage Overview to avoid skewing data with seconds
+                if (lib && (lib.type === 'Cardio' || lib.type === 'Statique' || lib.type === 'Étirement')) return ac;
+                return ac + e.sets.filter(st => st.done && !st.isWarmup).reduce((a, st) => a + (parseFloat(st.weight)||0) * (parseFloat(st.reps)||0), 0);
+            }, 0);
+        }, 0);
+        return { totalSessions, totalSets, totalTonnage: Math.round(totalTonnage / 1000) };
+    }, [relevantHistory, library]);
 
-        stats.Total = stats.S + stats.B + stats.D;
-        
-        // Find latest bodyweight
-        const latestSess = history.find(s => s.bodyWeight && parseFloat(s.bodyWeight) > 0);
-        const bw = latestSess ? parseFloat(latestSess.bodyWeight) : 0;
-        
-        if (bw > 0) stats.Ratio = parseFloat((stats.Total / bw).toFixed(2));
+    const volFatigueData = useMemo(() => {
+        return relevantHistory.map(s => ({
+            date: new Date(s.startTime).toLocaleDateString('fr-FR', { day: 'numeric', month: 'numeric' }),
+            volume: s.exercises.reduce((acc, e) => acc + e.sets.filter(st => st.done && !st.isWarmup).length, 0),
+            fatigue: parseInt(s.fatigue) || 3
+        }));
+    }, [relevantHistory]);
 
-        return stats;
-    }, [isSBDSelected, history, getFilterTime]);
-
-    const handleSBDToggle = () => {
-        triggerHaptic('click');
-        if (isSBDSelected) {
-            setSelectedExos([]);
-        } else {
-            setSelectedExos(SBD_IDS);
-        }
-    };
-
-    const progData = useMemo(() => {
-        if (selectedExos.length === 0) return [];
-        
-        const minTime = getFilterTime();
-        const filteredHistory = history.filter(s => s.startTime >= minTime).sort((a,b) => a.startTime - b.startTime);
-
-        return filteredHistory.map(s => {
-            const dataPoint: any = {
-                date: new Date(s.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
-                fullDate: new Date(s.startTime).toLocaleDateString('fr-FR'),
-                timestamp: s.startTime // for sorting if needed
-            };
-
-            let hasData = false;
-
-            selectedExos.forEach(eid => {
-                const ex = s.exercises.find((e:any) => e.exerciseId === eid);
-                if (ex) {
-                    // Filter warmups out
-                    const doneSets = ex.sets.filter((st:any) => st.done && !st.isWarmup);
-                    if (doneSets.length > 0) {
-                        let val = 0;
-                        if (analyticsMetric === '1rm') {
-                            val = Math.max(...doneSets.map((ds:any) => calculate1RM(ds.weight, ds.reps)));
-                        } else if (analyticsMetric === 'max') {
-                            val = Math.max(...doneSets.map((ds:any) => parseFloat(ds.weight) || 0));
-                        } else if (analyticsMetric === 'volume') {
-                            val = doneSets.length;
-                        } else if (analyticsMetric === 'tonnage') {
-                            val = doneSets.reduce((acc:number, ds:any) => acc + ((parseFloat(ds.weight)||0) * (parseFloat(ds.reps)||0)), 0);
-                        }
-                        if (val > 0) {
-                            dataPoint[`val_${eid}`] = val;
-                            hasData = true;
-                        }
-                    }
-                }
-            });
-
-            return hasData ? dataPoint : null;
-        }).filter(d => d !== null);
-    }, [history, selectedExos, analyticsPeriod, analyticsMetric, getFilterTime]);
-
-    const radarData = useMemo(() => {
-        const minTime = getFilterTime();
-        const relevantHistory = history.filter(s => s.startTime >= minTime);
+    const weeklyVolumeData = useMemo(() => {
         const counts: Record<string, number> = {};
+        if (volumeMode === 'muscle') MUSCLE_ORDER.forEach(m => counts[m] = 0);
+        else TYPE_ORDER.forEach(t => counts[t] = 0);
         
         relevantHistory.forEach(s => {
-            s.exercises.forEach((e:any) => {
-                const lib = getExerciseById(e.exerciseId);
-                if (!lib) return;
-                // Exclude warmups from Radar Chart
-                const hardSets = e.sets.filter((st:any) => st.done && !st.isWarmup).length;
-                if (hardSets > 0) {
-                    const m = lib.muscle || 'Autre';
-                    counts[m] = (counts[m] || 0) + hardSets;
-                }
-            });
-        });
-
-        return MUSCLE_ORDER.filter(m => m !== 'Cardio').map(m => ({
-            subject: m,
-            A: counts[m] || 0,
-            fullMark: Math.max(...Object.values(counts), 10)
-        }));
-    }, [history, analyticsPeriod, getExerciseById, getFilterTime]);
-
-    const physioData = useMemo(() => {
-        const minTime = getFilterTime();
-        const filtered = history.filter(s => s.startTime >= minTime).sort((a,b) => a.startTime - b.startTime);
-        
-        return filtered.map(s => {
-            let totalVol = 0;
-            s.exercises.forEach((e:any) => {
-                e.sets.forEach((st:any) => {
-                   if (st.done && !st.isWarmup) {
-                       const w = parseFloat(st.weight) || 0;
-                       const r = parseFloat(st.reps) || 0;
-                       totalVol += (w * r);
-                   }
-                });
-            });
-            
-            return {
-               date: new Date(s.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
-               fullDate: new Date(s.startTime).toLocaleDateString('fr-FR'),
-               fatigue: parseInt(s.fatigue) || 3,
-               perf: totalVol
-            };
-        });
-    }, [history, analyticsPeriod, getFilterTime]);
-
-    const habitsData = useMemo(() => {
-        const minTime = getFilterTime();
-        const filtered = history.filter(s => s.startTime >= minTime);
-        
-        const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-        const dayCounts = new Array(7).fill(0);
-        const dayDurations = new Array(7).fill(0); // Total duration per day index
-        const dayDurCounts = new Array(7).fill(0); // Count of sessions with duration per day index
-        
-        const equipCounts: Record<string, number> = { 'Libre': 0, 'Machine': 0, 'PDC': 0 };
-        
-        filtered.forEach(s => {
-            const d = new Date(s.startTime);
-            const idx = d.getDay();
-            dayCounts[idx]++;
-            
-            if (s.endTime && s.endTime > s.startTime) {
-                const durMin = (s.endTime - s.startTime) / 60000;
-                dayDurations[idx] += durMin;
-                dayDurCounts[idx]++;
-            }
-            
-            s.exercises.forEach((e:any) => {
-                const lib = getExerciseById(e.exerciseId);
+            s.exercises.forEach(e => {
+                const lib = library.find(l => l.id === e.exerciseId);
                 if (lib) {
-                    // Habits count all sets including warmups? Probably strictly working sets is better for equipment usage
-                    const sets = e.sets.filter((st:any) => st.done && !st.isWarmup).length;
-                    if (sets > 0) {
-                        if (['BB','DB','EZ','KB','TB','PL'].includes(lib.equipment)) equipCounts['Libre'] += sets;
-                        else if (['EM','SM','CB'].includes(lib.equipment)) equipCounts['Machine'] += sets;
-                        else if (lib.equipment === 'BW') equipCounts['PDC'] += sets;
+                    const key = volumeMode === 'muscle' ? lib.muscle : lib.type;
+                    if (counts[key] !== undefined) {
+                        counts[key] += e.sets.filter(st => st.done && !st.isWarmup).length;
                     }
                 }
             });
         });
+
+        const weeks = period === '7d' ? 1 : period === '30d' ? 4 : 12;
+        const labels = volumeMode === 'muscle' ? MUSCLE_ORDER : TYPE_ORDER;
         
-        const freqData = days.map((d, i) => ({ 
-            name: d, 
-            count: dayCounts[i],
-            duration: dayDurCounts[i] > 0 ? Math.round(dayDurations[i] / dayDurCounts[i]) : 0
+        return labels.map(label => ({
+            name: volumeMode === 'muscle' ? label : label.substring(0,4).toUpperCase(),
+            realName: label,
+            avgSets: Math.round((counts[label] / weeks) * 10) / 10
         }));
-        
-        const pieData = [
-            { name: 'Libre', value: equipCounts['Libre'], color: PALETTE.accents.blue.primary },
-            { name: 'Machine', value: equipCounts['Machine'], color: PALETTE.accents.purple.primary },
-            { name: 'PDC', value: equipCounts['PDC'], color: PALETTE.accents.emerald.primary }
-        ].filter(d => d.value > 0);
+    }, [relevantHistory, library, period, volumeMode]);
 
-        return { freqData, pieData };
-    }, [history, analyticsPeriod, getExerciseById, getFilterTime]);
-
-    const [weekStart, weekEnd] = useMemo(() => {
-        const start = new Date();
-        const day = start.getDay();
-        const diff = start.getDate() - day + (day === 0 ? -6 : 1) + (currentWeekOffset * 7);
-        start.setDate(diff);
-        const end = new Date(start);
-        end.setDate(end.getDate() + 6);
-        return [start, end];
-    }, [currentWeekOffset]);
-        
-    const volumeData = useMemo(() => {
+    const equipmentData = useMemo(() => {
         const counts: Record<string, number> = {};
-        history.forEach(s => {
-            const d = new Date(s.startTime);
-            const dTime = d.setHours(0,0,0,0);
-            const wStartTime = weekStart.setHours(0,0,0,0);
-            const wEndTime = weekEnd.setHours(23,59,59,999);
-            if (dTime >= wStartTime && dTime <= wEndTime) {
-                s.exercises.forEach((e:any) => {
-                    const lib = getExerciseById(e.exerciseId);
-                    if (!lib) return;
-                    // Strict filtering of warmups, removal of RIR filter
-                    const doneSets = e.sets.filter((st:any) => st.done && !st.isWarmup).length;
-                    
-                    if (volumeChartMode === 'muscle') {
-                        const muscle = lib.muscle || 'Autre';
-                        counts[muscle] = (counts[muscle] || 0) + doneSets;
-                    } else {
-                        const type = lib.type;
-                        counts[type] = (counts[type] || 0) + doneSets;
-                    }
-                });
-            }
+        relevantHistory.forEach(s => {
+            s.exercises.forEach(e => {
+                const lib = library.find(l => l.id === e.exerciseId);
+                if (lib && lib.equipment) {
+                    const cat = EQUIP_CAT_MAP[lib.equipment] || 'Divers';
+                    counts[cat] = (counts[cat] || 0) + e.sets.filter(st => st.done && !st.isWarmup).length;
+                }
+            });
         });
-        if (volumeChartMode === 'muscle') {
-            return MUSCLE_ORDER.map(m => ({ name: m, sets: counts[m] || 0, color: MUSCLE_COLORS[m] }));
-        } else {
-            return EXERCISE_TYPE_LIST.map(t => ({ name: t, sets: counts[t] || 0, color: TYPE_COLORS[t] }));
+        
+        return Object.entries(counts)
+            .map(([name, value]) => ({ 
+                name, 
+                value,
+                color: CAT_COLORS[name] || PALETTE.text.secondary
+            }))
+            .sort((a,b) => b.value - a.value);
+    }, [relevantHistory, library]);
+
+    const exerciseDetailData = useMemo(() => {
+        return relevantHistory
+            .filter(h => h.exercises.some(e => e.exerciseId === selectedDetailExo))
+            .map(h => {
+                const ex = h.exercises.find(e => e.exerciseId === selectedDetailExo);
+                if (!ex) return null;
+                const validSets = ex.sets.filter(s => s.done && !s.isWarmup);
+                if (validSets.length === 0) return null;
+                let val = 0;
+
+                const isTime = isTimeBased;
+
+                if (detailMetric === 'volume') {
+                    val = validSets.length;
+                } 
+                else if (isTime) {
+                    // --- STATIC / ETIREMENT ---
+                    if (detailMetric === '1rm') {
+                        // "Lest Max" -> Stored in Weight
+                        val = Math.max(...validSets.map(s => parseFloat(s.weight) || 0));
+                    } else if (detailMetric === 'max') {
+                        // "Temps Max" -> Stored in Reps
+                        val = Math.max(...validSets.map(s => parseDuration(s.reps)));
+                    } else { // tonnage
+                        // "Temps s/Tension" -> Sum of Reps
+                        val = validSets.reduce((acc, s) => acc + parseDuration(s.reps), 0);
+                    }
+                } 
+                else if (isCardio) {
+                    // --- CARDIO ---
+                    if (detailMetric === '1rm') {
+                        // "Vitesse/Lvl Max" -> Stored in Weight
+                        val = Math.max(...validSets.map(s => parseFloat(s.weight) || 0));
+                    } else if (detailMetric === 'max') {
+                        // "Dist. Max" -> Stored in Reps (usually distance)
+                        val = Math.max(...validSets.map(s => parseFloat(s.reps) || 0));
+                    } else { // tonnage
+                        // "Distance Totale" -> Sum of Reps
+                        val = validSets.reduce((acc, s) => acc + (parseFloat(s.reps)||0), 0);
+                    }
+                } 
+                else {
+                    // --- STANDARD (Poly / Iso) ---
+                    if (detailMetric === '1rm') {
+                        // 1RM Est.
+                        val = Math.max(...validSets.map(s => calculate1RM(s.weight, s.reps)));
+                    } else if (detailMetric === 'max') {
+                        // Poids Max
+                        val = Math.max(...validSets.map(s => parseFloat(s.weight) || 0));
+                    } else { // tonnage
+                        // Tonnage
+                        val = validSets.reduce((acc, s) => acc + ((parseFloat(s.weight)||0) * (parseFloat(s.reps)||0)), 0);
+                    }
+                }
+
+                return {
+                    date: new Date(h.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+                    val: val
+                };
+            }).filter(Boolean);
+    }, [relevantHistory, selectedDetailExo, detailMetric, isTimeBased, isCardio]);
+
+    // Enhanced SBD Logic
+    const sbdStats = useMemo(() => {
+        const squatIds = [33, 34, 35];
+        const benchIds = [1, 2, 3, 4];
+        const deadliftIds = [20, 40];
+        
+        const maxes = { S: 0, B: 0, D: 0 };
+        
+        history.forEach(s => {
+            s.exercises.forEach(e => {
+                let category: 'S'|'B'|'D'|null = null;
+                if (squatIds.includes(e.exerciseId)) category = 'S';
+                else if (benchIds.includes(e.exerciseId)) category = 'B';
+                else if (deadliftIds.includes(e.exerciseId)) category = 'D';
+
+                if (category) {
+                    const libEx = library.find(l => l.id === e.exerciseId);
+                    e.sets.forEach(st => {
+                        if (st.done && !st.isWarmup) {
+                            let w = parseFloat(st.weight) || 0;
+                            // Conversion logic for DB Bench Press: (Weight * 2) / 0.8
+                            if (category === 'B' && libEx?.equipment === 'DB') {
+                                w = (w * 2) / 0.8;
+                            }
+                            const e1rm = calculate1RM(w, st.reps);
+                            if (e1rm > maxes[category!]) maxes[category!] = e1rm;
+                        }
+                    });
+                }
+            });
+        });
+        
+        const total = Math.round(maxes.S + maxes.B + maxes.D);
+        
+        // Secure Bodyweight
+        let lastBW = 75; 
+        if (history.length > 0 && history[0].bodyWeight) {
+            const parsed = parseFloat(history[0].bodyWeight);
+            if (!isNaN(parsed) && parsed > 0) lastBW = parsed;
         }
-    }, [history, weekStart, weekEnd, library, volumeChartMode, getExerciseById]);
+        
+        const currentRatio = (total / lastBW).toFixed(2);
+
+        // CHART NORMALIZATION (Visual Only)
+        // Value for Chart = (Current Ratio / Elite Ratio) * 100
+        const getNormValue = (max: number, elite: number) => {
+            const ratio = max / lastBW;
+            return Math.min(100, Math.round((ratio / elite) * 100));
+        };
+
+        const ratioS = maxes.S / lastBW;
+        const ratioB = maxes.B / lastBW;
+        const ratioD = maxes.D / lastBW;
+
+        return {
+            data: [
+                { 
+                    name: 'Squat', 
+                    value: getNormValue(maxes.S, SBD_STANDARDS.S), 
+                    displayRatio: ratioS.toFixed(2), 
+                    raw: Math.round(maxes.S), 
+                    fullMark: 100 
+                },
+                { 
+                    name: 'Bench', 
+                    value: getNormValue(maxes.B, SBD_STANDARDS.B), 
+                    displayRatio: ratioB.toFixed(2), 
+                    raw: Math.round(maxes.B), 
+                    fullMark: 100 
+                },
+                { 
+                    name: 'Deadlift', 
+                    value: getNormValue(maxes.D, SBD_STANDARDS.D), 
+                    displayRatio: ratioD.toFixed(2), 
+                    raw: Math.round(maxes.D), 
+                    fullMark: 100 
+                }
+            ],
+            total,
+            ratio: currentRatio
+        };
+    }, [history, library]);
+
+    // Nice Domain for Y-Axis
+    const niceDomain = ([dataMin, dataMax]: [number, number]): [number, number] => {
+        if (!dataMax || dataMax === 0 || !isFinite(dataMax)) return [0, 10];
+        return [0, Math.ceil(dataMax * 1.1)];
+    };
 
     return (
-    <div className="space-y-6 pb-24 animate-fade-in">
-        <div className="flex items-center gap-4 px-1">
-             <button onClick={() => navigate('/')} className="p-2 bg-surface2 rounded-full text-secondary hover:text-white transition-colors">
-                 <Icons.ChevronLeft />
-             </button>
-             <h2 className="text-2xl font-black italic uppercase">Progression</h2>
-        </div>
-        
-        <SegmentedControl 
-            options={[
-                { id: 'micro', label: 'Micro' },
-                { id: 'macro', label: 'Macro' },
-                { id: 'physio', label: 'Physio' },
-                { id: 'habits', label: 'Habitudes' }
-            ]}
-            value={analyticsTab}
-            onChange={(v) => setAnalyticsTab(v as any)}
-        />
-
-        <div className="flex justify-end">
-            <SegmentedControl 
-                options={PERIODS.map(p => ({ id: p.key, label: p.label }))}
-                value={analyticsPeriod}
-                onChange={(v) => setAnalyticsPeriod(v as any)}
-            />
-        </div>
-        
-        {analyticsTab === 'micro' && (
-            <div className="space-y-4 animate-fade-in">
-                <div className="flex gap-2">
-                    <button onClick={() => setShowExoPicker(true)} className="flex-1 bg-surface2 p-3 rounded-xl flex items-center justify-between text-[10px] font-bold border border-transparent hover:border-primary/50 transition-colors uppercase">
-                        <span>{selectedExos.length > 0 ? `${selectedExos.length} sélectionné(s)` : 'Choisir Exercice(s)'}</span>
-                        <Icons.Menu />
-                    </button>
-                    <button 
-                        onClick={handleSBDToggle} 
-                        className={`p-3 rounded-xl text-[10px] font-black uppercase border transition-colors ${isSBDSelected ? 'bg-gold/20 text-gold border-gold' : 'bg-surface2 text-secondary border-transparent hover:bg-gold/10'}`}
-                    >
-                        SBD
-                    </button>
-                </div>
-                
-                {/* SBD Stats Display */}
-                {isSBDSelected && sbdStats && (
-                    <div className="bg-surface2/30 border border-gold/20 p-4 rounded-2xl grid grid-cols-2 gap-4">
-                        <div className="text-center">
-                            <div className="text-[9px] uppercase text-secondary font-bold">Total SBD</div>
-                            <div className="text-2xl font-black text-gold tracking-tight">{sbdStats.Total} <span className="text-xs text-secondary">kg</span></div>
-                        </div>
-                        <div className="text-center">
-                            <div className="text-[9px] uppercase text-secondary font-bold">Ratio</div>
-                            <div className="text-2xl font-black text-white tracking-tight">{sbdStats.Ratio} <span className="text-xs text-secondary">xPDC</span></div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="flex justify-center">
-                    <SegmentedControl 
-                        options={[
-                            { id: '1rm', label: '1RM' },
-                            { id: 'max', label: 'Max' },
-                            { id: 'volume', label: 'Volume' },
-                            { id: 'tonnage', label: 'Tonnage' }
-                        ]}
-                        value={analyticsMetric}
-                        onChange={(v) => setAnalyticsMetric(v as any)}
-                    />
-                </div>
-
-                {selectedExos.length > 0 && (
-                    <ChartContainer 
-                        title={`Progression (${analyticsMetric === '1rm' ? '1RM Estimé' : analyticsMetric === 'max' ? 'Charge Max' : analyticsMetric})`}
-                        footer={
-                            <div className="flex flex-wrap justify-center gap-4">
-                                {selectedExos.map((eid, idx) => {
-                                    const colors = [PALETTE.accents.blue.primary, PALETTE.accents.purple.primary, PALETTE.accents.emerald.primary, PALETTE.accents.gold.primary, PALETTE.accents.red.primary];
-                                    const color = colors[idx % colors.length];
-                                    return (
-                                        <div key={eid} className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                                            <span className="text-[10px] text-secondary uppercase font-bold">{getExerciseById(eid)?.name || 'Exo'}</span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        }
-                    >
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={progData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                                <CartesianGrid {...CHART_CONFIG.gridStyle} />
-                                <XAxis dataKey="date" {...CHART_CONFIG.axisStyle} tickMargin={10} height={20} tick={true} />
-                                <YAxis {...CHART_CONFIG.axisStyle} width={45} domain={['auto','auto']} tick={true} />
-                                <Tooltip {...CHART_CONFIG.tooltipStyle} />
-                                {selectedExos.map((eid, idx) => {
-                                    const colors = [PALETTE.accents.blue.primary, PALETTE.accents.purple.primary, PALETTE.accents.emerald.primary, PALETTE.accents.gold.primary, PALETTE.accents.red.primary];
-                                    const color = colors[idx % colors.length];
-                                    return (
-                                        <Area key={eid} type="monotone" dataKey={`val_${eid}`} stroke={color} fillOpacity={0.1} fill={color} strokeWidth={3} connectNulls />
-                                    );
-                                })}
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </ChartContainer>
-                )}
-            </div>
-        )}
-
-        {analyticsTab === 'macro' && (
-            <div className="space-y-4 animate-fade-in">
-                 <div className="flex justify-between items-center bg-surface2 rounded-xl p-2 mb-2">
-                     <button onClick={() => setCurrentWeekOffset(o => o - 1)} className="p-2 bg-background/50 rounded-lg text-secondary hover:text-white"><Icons.ChevronLeft size={16} /></button>
-                     <div className="flex flex-col items-center">
-                         <span className="text-[10px] uppercase font-bold text-secondary">Semaine du</span>
-                         <span className="text-xs font-mono font-bold">{weekStart.toLocaleDateString()}</span>
-                     </div>
-                     <div className="flex gap-2">
-                         {currentWeekOffset !== 0 && <button onClick={() => setCurrentWeekOffset(0)} className="px-2 py-1 bg-primary/20 text-primary rounded text-[9px] font-bold uppercase">RST</button>}
-                         <button onClick={() => setCurrentWeekOffset(o => o + 1)} className="p-2 bg-background/50 rounded-lg text-secondary hover:text-white"><Icons.ChevronRight size={16} /></button>
-                     </div>
+        <div className="space-y-6 pb-24 animate-zoom-in relative pt-4">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-2">
+                 <h2 className="text-3xl font-black italic uppercase text-white">Activité</h2>
+                 <div className="bg-surface2/50 p-1 rounded-xl flex gap-1 border border-white/5">
+                     {['7d', '30d', '90d'].map((p) => (
+                         <button 
+                            key={p} 
+                            onClick={() => { triggerHaptic('click'); setPeriod(p as any); }}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${period === p ? 'bg-primary text-black' : 'text-secondary hover:text-white'}`}
+                         >
+                             {p}
+                         </button>
+                     ))}
                  </div>
-                 
-                 <ChartContainer 
-                    title="Volume Hebdo" 
-                    height="h-96"
-                    action={
-                        <SegmentedControl 
-                            options={[{ id: 'muscle', label: 'Muscle' }, { id: 'type', label: 'Type' }]}
-                            value={volumeChartMode}
-                            onChange={(v) => setVolumeChartMode(v as any)}
-                        />
-                    }
-                 >
-                    <div className="flex-1 min-h-0 h-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={volumeData} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 20 }}>
-                                {volumeChartMode === 'muscle' && (
-                                    <ReferenceArea x1={10} x2={20} fill={PALETTE.success} fillOpacity={0.1} />
-                                )}
-                                <XAxis type="number" hide={false} tickLine={true} axisLine={true} height={20} interval={0} tickCount={10} allowDecimals={false} />
-                                <YAxis dataKey="name" type="category" width={85} {...CHART_CONFIG.axisStyle} fill={PALETTE.text.white} tick={true} interval={0} />
-                                <Tooltip {...CHART_CONFIG.tooltipStyle} />
-                                <Bar dataKey="sets" radius={[0, 4, 4, 0]} barSize={16}>
-                                    {volumeData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                    <LabelList dataKey="sets" position="right" fill="white" fontSize={11} fontWeight="bold" formatter={(val: number) => val > 0 ? val : ''} />
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+            </div>
+
+            {/* 1. Overview Cards */}
+            <div className="grid grid-cols-3 gap-3">
+                <SectionCard className="p-4 flex flex-col items-center justify-center gap-1">
+                    <div className="text-2xl font-black text-white">{overviewStats.totalSessions}</div>
+                    <div className="text-[9px] font-bold uppercase text-secondary">Séances</div>
+                </SectionCard>
+                <SectionCard className="p-4 flex flex-col items-center justify-center gap-1">
+                    <div className="text-2xl font-black text-white">{overviewStats.totalSets}</div>
+                    <div className="text-[9px] font-bold uppercase text-secondary">Sets</div>
+                </SectionCard>
+                <SectionCard className="p-4 flex flex-col items-center justify-center gap-1">
+                    <div className="text-2xl font-black text-white">{overviewStats.totalTonnage}k</div>
+                    <div className="text-[9px] font-bold uppercase text-secondary">Tonnage</div>
+                </SectionCard>
+            </div>
+
+            {/* 2. Volume vs Fatigue */}
+            <SectionCard className="p-5 h-72 relative">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    <h3 className="text-xs font-black uppercase text-white">Volume vs Fatigue</h3>
+                </div>
+                {volFatigueData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="85%">
+                        <ComposedChart data={volFatigueData} margin={{ left: -20, right: 0 }}>
+                             <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: PALETTE.text.secondary, fontSize: 10}} dy={10} minTickGap={20} />
+                             <YAxis yAxisId="left" orientation="left" stroke={PALETTE.accents.blue.primary} axisLine={false} tickLine={false} tick={{fill: PALETTE.text.secondary, fontSize: 10}} />
+                             <YAxis yAxisId="right" orientation="right" domain={[0, 6]} hide />
+                             <Tooltip contentStyle={{backgroundColor: PALETTE.surface, borderRadius: '12px', border: '1px solid #334155'}} itemStyle={{fontSize: '11px', color: '#fff'}} cursor={{fill: 'transparent'}} />
+                             <Bar yAxisId="left" dataKey="volume" fill={PALETTE.accents.blue.primary} barSize={8} radius={[4,4,0,0]} fillOpacity={0.6} />
+                             <Line yAxisId="right" type="monotone" dataKey="fatigue" stroke={PALETTE.accents.orange.primary} strokeWidth={2} dot={{r:3}} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-secondary/40 text-xs italic">Pas de données</div>
+                )}
+            </SectionCard>
+
+            {/* 3. Weekly Volume & Target Zone */}
+            <SectionCard className="p-5 h-72 relative flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                     <div className="flex items-center gap-2">
+                        <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
+                        <h3 className="text-xs font-black uppercase text-white">Volume Hebdo (Moy.)</h3>
                     </div>
-                 </ChartContainer>
-                 
-                 <ChartContainer 
-                    title="Équilibre Musculaire" 
-                    height="h-72"
-                    footer={
-                        <div className="flex justify-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-primary" />
-                                <span className="text-[10px] text-secondary uppercase font-bold">Volume (Sets)</span>
-                            </div>
-                        </div>
-                    }
-                 >
-                     <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                            <PolarGrid stroke="#ffffff20" />
-                            <PolarAngleAxis dataKey="subject" tick={{ fill: PALETTE.text.secondary, fontSize: 10 }} />
-                            <Radar name="Sets" dataKey="A" stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.3} />
-                            <Tooltip {...CHART_CONFIG.tooltipStyle} />
-                        </RadarChart>
-                     </ResponsiveContainer>
-                 </ChartContainer>
-            </div>
-        )}
+                    <div className="flex bg-surface2/50 p-0.5 rounded-lg border border-white/5">
+                        <button onClick={() => setVolumeMode('muscle')} className={`px-2 py-1 text-[8px] font-bold uppercase rounded ${volumeMode === 'muscle' ? 'bg-white/10 text-white' : 'text-secondary'}`}>Muscle</button>
+                        <button onClick={() => setVolumeMode('type')} className={`px-2 py-1 text-[8px] font-bold uppercase rounded ${volumeMode === 'type' ? 'bg-white/10 text-white' : 'text-secondary'}`}>Type</button>
+                    </div>
+                </div>
+                <div className="flex-1 w-full min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={weeklyVolumeData} margin={{ top: 0, right: 0, bottom: 0, left: -25 }}>
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: PALETTE.text.secondary, fontSize: 9}} dy={10} interval={0} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: PALETTE.text.secondary, fontSize: 10}} />
+                            <ReferenceArea y1={10} y2={20} fill={PALETTE.accents.emerald.primary} fillOpacity={0.1} />
+                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: PALETTE.surface, borderRadius: '12px', border: '1px solid #334155'}} itemStyle={{color:'#fff'}} />
+                            <Bar dataKey="avgSets" radius={[4,4,0,0]}>
+                                {weeklyVolumeData.map((entry, index) => {
+                                    const color = volumeMode === 'muscle' 
+                                        ? MUSCLE_COLORS[entry.realName] 
+                                        : TYPE_COLORS[entry.realName as ExerciseType];
+                                    return <Cell key={`cell-${index}`} fill={color || PALETTE.text.secondary} fillOpacity={0.8} />;
+                                })}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </SectionCard>
 
-        {analyticsTab === 'physio' && (
-            <div className="space-y-4 animate-fade-in">
-                 <ChartContainer 
-                    title="Volume vs Fatigue" 
-                    footer={
-                        <div className="flex justify-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-border" />
-                                <span className="text-[10px] text-secondary uppercase font-bold">Volume</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-primary" />
-                                <span className="text-[10px] text-secondary uppercase font-bold">Fatigue</span>
-                            </div>
-                        </div>
-                    }
-                 >
-                     <ResponsiveContainer width="100%" height="100%">
-                         <ComposedChart data={physioData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                             <XAxis dataKey="date" {...CHART_CONFIG.axisStyle} height={20} tick={true} />
-                             <YAxis yAxisId="left" orientation="left" width={45} {...CHART_CONFIG.axisStyle} tick={true} />
-                             <YAxis yAxisId="right" orientation="right" width={45} stroke="var(--primary)" domain={[0, 6]} {...CHART_CONFIG.axisStyle} tick={true} />
-                             <Tooltip {...CHART_CONFIG.tooltipStyle} />
-                             <Bar yAxisId="left" dataKey="perf" fill={PALETTE.border} radius={[4, 4, 0, 0]} barSize={8} />
-                             <Line yAxisId="right" type="monotone" dataKey="fatigue" stroke="var(--primary)" strokeWidth={2} dot={true} />
-                         </ComposedChart>
-                     </ResponsiveContainer>
-                 </ChartContainer>
-            </div>
-        )}
-
-        {analyticsTab === 'habits' && (
-             <div className="space-y-4 animate-fade-in">
-                 <div className="flex flex-col gap-4">
-                     <ChartContainer 
-                        title={habitsMode === 'freq' ? "Fréquence / Jours" : "Durée Moy. / Jours"} 
-                        height="h-64"
-                        action={
-                            <SegmentedControl 
-                                options={[{ id: 'freq', label: 'Freq.' }, { id: 'duration', label: 'Durée' }]}
-                                value={habitsMode}
-                                onChange={(v) => setHabitsMode(v as any)}
-                            />
-                        }
-                     >
-                         <ResponsiveContainer width="100%" height="100%">
-                             <BarChart data={habitsData.freqData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                                 <XAxis dataKey="name" {...CHART_CONFIG.axisStyle} interval={0} fontSize={10} height={20} tick={true} />
-                                 <YAxis 
-                                    {...CHART_CONFIG.axisStyle} 
-                                    width={35} 
-                                    fontSize={10} 
-                                    tick={true} 
-                                    domain={[0, (dataMax: number) => (Math.max(dataMax, 0) + 1)]}
-                                    allowDecimals={false}
-                                 />
-                                 <Tooltip {...CHART_CONFIG.tooltipStyle} />
-                                 <Bar dataKey={habitsMode === 'freq' ? 'count' : 'duration'} fill="var(--primary)" radius={[4,4,0,0]}>
-                                     <LabelList 
-                                        dataKey={habitsMode === 'freq' ? 'count' : 'duration'} 
-                                        position="top" 
-                                        fill="white" 
-                                        fontSize={10} 
-                                        formatter={(val: number) => val > 0 ? (habitsMode === 'duration' ? `${val}m` : val) : ''} 
-                                     />
-                                 </Bar>
-                             </BarChart>
-                         </ResponsiveContainer>
-                     </ChartContainer>
-                     
-                     <ChartContainer 
-                        title="Matériel Utilisé" 
-                        height="h-56"
-                        footer={
-                            <div className="flex flex-wrap justify-center gap-3">
-                                {habitsData.pieData.map(entry => (
-                                <div key={entry.name} className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                                    <span className="text-[10px] text-secondary uppercase font-bold">{entry.name}</span>
+            <div className="grid grid-cols-2 gap-3 relative">
+                 {/* 4. Equipment Donut - Hover z-50 to bring to top */}
+                 <SectionCard className="p-4 h-72 flex flex-col relative z-0 hover:z-50 transition-all">
+                     <div className="flex items-center gap-2 mb-2">
+                         <div className="w-1 h-4 bg-purple-500 rounded-full"></div>
+                         <div className="flex items-center gap-1">
+                             <h3 className="text-xs font-black uppercase text-white">Matériel</h3>
+                             <div className="group relative">
+                                <Icons.Search size={10} className="text-secondary cursor-help" />
+                                <div className="absolute left-full top-0 ml-2 w-44 p-3 bg-surface border border-white/10 rounded-xl text-[9px] text-secondary hidden group-hover:block z-50 shadow-2xl">
+                                    <span className="font-bold text-white block mb-2 uppercase tracking-widest border-b border-white/10 pb-1">Légende</span>
+                                    <div className="space-y-1.5">
+                                        {LEGEND_DETAILS.map((item, idx) => (
+                                            <div key={idx} className="flex flex-col">
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-2 h-2 rounded-full" style={{backgroundColor: CAT_COLORS[item.label]}} /> 
+                                                    <span className="font-bold text-white text-[10px]">{item.label}</span>
+                                                </div>
+                                                <span className="text-[8px] text-secondary/70 pl-3.5 leading-tight">{item.desc}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                ))}
-                            </div>
-                        }
-                     >
+                             </div>
+                         </div>
+                     </div>
+                     <div className="flex-1 min-h-0">
                          <ResponsiveContainer width="100%" height="100%">
-                             <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                                 <Pie data={habitsData.pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" label={({name, percent}) => `${(percent * 100).toFixed(0)}%`}>
-                                     {habitsData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                             <PieChart>
+                                 <Pie data={equipmentData} innerRadius={40} outerRadius={60} paddingAngle={4} dataKey="value" stroke="none">
+                                     {equipmentData.map((entry, index) => (
+                                         <Cell key={`cell-${index}`} fill={entry.color} />
+                                     ))}
                                  </Pie>
-                                 <Tooltip {...CHART_CONFIG.tooltipStyle} />
+                                 <Tooltip contentStyle={{backgroundColor: PALETTE.surface, borderRadius: '8px', border: '1px solid #334155', fontSize: '10px'}} itemStyle={{color:'#fff'}} />
+                                 <Legend 
+                                     layout="horizontal" 
+                                     verticalAlign="bottom" 
+                                     align="center"
+                                     iconSize={6}
+                                     wrapperStyle={{fontSize: '9px', opacity: 0.8, paddingTop: '10px'}} 
+                                     formatter={(value, entry: any) => {
+                                         return <span style={{color: '#fff'}}>{value}</span>;
+                                     }}
+                                 />
                              </PieChart>
                          </ResponsiveContainer>
-                     </ChartContainer>
-                 </div>
-             </div>
-        )}
+                     </div>
+                 </SectionCard>
 
-        {/* ANALYTICS PICKER MODAL */}
-        {showExoPicker && (
-         <Modal title="Comparer Exercices" onClose={() => { setShowExoPicker(false); setLibraryFilter(''); }}>
-            <div className="space-y-4">
-               <input placeholder="Rechercher..." className="w-full bg-surface2 p-3 rounded-2xl outline-none text-sm" onChange={(e) => setLibraryFilter(e.target.value)} autoFocus />
-               <div className="max-h-60 overflow-y-auto space-y-2">
-                 {library.filter(l => !l.isArchived && ((l.name || '').toLowerCase().includes(libraryFilter.toLowerCase()) || (l.muscle || '').toLowerCase().includes(libraryFilter.toLowerCase()))).sort((a,b) => (a.isFavorite === b.isFavorite) ? (a.name || '').localeCompare(b.name || '') : (a.isFavorite ? -1 : 1)).map(l => {
-                    const isSelected = selectedExos.includes(l.id);
-                    return (
-                        <button key={l.id} onClick={() => {
-                            if (isSelected) setSelectedExos(prev => prev.filter(id => id !== l.id));
-                            else setSelectedExos(prev => [...prev, l.id]);
-                            triggerHaptic('tick');
-                        }} className={`w-full p-3 rounded-2xl text-left transition-colors flex justify-between items-center group ${isSelected ? 'bg-primary/20 border border-primary' : 'bg-surface2/50 border border-transparent hover:bg-surface2'}`}>
-                        <div className="flex-1"><div className="flex items-center gap-2">{l.isFavorite && <span className="text-gold"><Icons.Star /></span>}<div className="font-bold text-sm group-hover:text-primary transition-colors">{l.name}</div></div><div className="text-[10px] text-secondary uppercase mt-1 flex gap-2"><span>{l.muscle} • {EQUIPMENTS[l.equipment as keyof typeof EQUIPMENTS]}</span><span style={{ color: TYPE_COLORS[l.type as keyof typeof TYPE_COLORS] }}>● {l.type}</span></div></div>
-                        <div className={`text-xl font-black ${isSelected ? 'text-primary' : 'text-surface2'}`}>✓</div>
-                        </button>
-                    );
-                 })}
-               </div>
-               <button onClick={() => setShowExoPicker(false)} className="w-full py-3 bg-primary text-background font-black uppercase rounded-[2rem]">Valider</button>
+                 {/* 6. SBD Ratios - Hover z-50 to bring to top */}
+                 <SectionCard className="p-4 h-72 flex flex-col relative z-0 hover:z-50 transition-all">
+                     <div className="flex items-center gap-2 mb-2">
+                         <div className="w-1 h-4 bg-gold rounded-full"></div>
+                         <div className="flex items-center gap-1">
+                             <h3 className="text-xs font-black uppercase text-white">SBD (Ratio)</h3>
+                             <div className="group relative">
+                                <Icons.Search size={10} className="text-secondary cursor-help" />
+                                <div className="absolute right-0 top-6 w-48 p-3 bg-surface border border-white/10 rounded-xl text-[9px] text-secondary hidden group-hover:block z-50 shadow-2xl">
+                                    <div className="font-bold text-white mb-2 text-center uppercase tracking-widest border-b border-white/10 pb-1">Ratio = 1RM / PDC</div>
+                                    <div className="grid grid-cols-5 gap-y-1 gap-x-2 text-center items-center">
+                                        <div className="font-bold text-left text-white/50">Lvl</div>
+                                        <div className="font-bold text-gold">S</div>
+                                        <div className="font-bold text-gold">B</div>
+                                        <div className="font-bold text-gold">D</div>
+                                        <div className="font-bold text-primary">Tot</div>
+
+                                        <div className="text-left text-white">Nov</div>
+                                        <div>0.8</div><div>0.5</div><div>1.0</div><div>2.5</div>
+
+                                        <div className="text-left text-white">Int</div>
+                                        <div>1.2</div><div>0.8</div><div>1.5</div><div>3.5</div>
+
+                                        <div className="text-left text-white">Adv</div>
+                                        <div>1.8</div><div>1.2</div><div>2.2</div><div>5.5</div>
+
+                                        <div className="text-left text-white">Eli</div>
+                                        <div>2.2</div><div>1.7</div><div>2.8</div><div>6.5</div>
+                                    </div>
+                                    <div className="mt-2 text-[8px] italic opacity-50 text-center text-white/50">*Graphique normalisé sur standards Élite</div>
+                                </div>
+                             </div>
+                         </div>
+                     </div>
+                     <div className="flex-1 min-h-0 relative">
+                         <ResponsiveContainer width="100%" height="100%">
+                             <RadarChart cx="50%" cy="50%" outerRadius="65%" data={sbdStats.data}>
+                                 <PolarGrid stroke={PALETTE.border} />
+                                 <PolarAngleAxis dataKey="name" tick={{ fill: PALETTE.text.secondary, fontSize: 9, fontWeight: 700 }} />
+                                 <Radar name="Niveau" dataKey="value" stroke={PALETTE.accents.gold.primary} fill={PALETTE.accents.gold.primary} fillOpacity={0.4} />
+                                 <PolarGrid gridType="circle" />
+                                 <Tooltip 
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const d = payload[0].payload;
+                                            return (
+                                                <div className="bg-surface border border-white/10 p-2 rounded-lg text-xs">
+                                                    <div className="font-bold text-gold">{d.name}</div>
+                                                    <div>Ratio: <span className="font-mono text-white">{d.displayRatio}x</span></div>
+                                                    <div>Max: <span className="font-mono text-white">{d.raw}kg</span></div>
+                                                    <div className="text-[9px] text-secondary mt-1">Niveau: {d.value}% Élite</div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                 />
+                             </RadarChart>
+                         </ResponsiveContainer>
+                         <div className="absolute bottom-0 right-0 text-[10px] text-gold font-bold text-right leading-tight">
+                             <div>Total: {sbdStats.total} kg</div>
+                             <div className="text-secondary/70">Ratio: {sbdStats.ratio}x</div>
+                         </div>
+                     </div>
+                 </SectionCard>
             </div>
-         </Modal>
-        )}
-    </div>
+
+            {/* 5. Exercise Detail (Updated Y-Axis for Time Based Exercises) */}
+            <SectionCard className="p-5 h-80 relative flex flex-col">
+                <div className="flex flex-col gap-3 mb-4 z-10 relative">
+                    <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                            <div className="w-1 h-4 bg-primary rounded-full"></div>
+                            <h3 className="text-xs font-black uppercase text-white">Détails Exercice</h3>
+                        </div>
+                        <select 
+                            className="bg-surface2/50 text-[10px] text-white p-1 rounded font-bold outline-none max-w-[120px] border border-white/10"
+                            value={detailMetric}
+                            onChange={(e) => setDetailMetric(e.target.value as any)}
+                        >
+                            <option value="1rm">{isTimeBased ? "Lest Max" : isCardio ? "Vitesse/Lvl Max" : "1RM Est."}</option>
+                            <option value="max">{isTimeBased ? "Temps Max" : isCardio ? "Dist. Max" : "Poids Max"}</option>
+                            <option value="volume">Volume (Sets)</option>
+                            <option value="tonnage">{isTimeBased ? "Temps s/Tension" : isCardio ? "Dist. Totale" : "Tonnage"}</option>
+                        </select>
+                    </div>
+                    <select 
+                        className="bg-surface2/50 text-[10px] text-white p-2 rounded-lg font-bold outline-none w-full border border-white/10"
+                        value={selectedDetailExo}
+                        onChange={(e) => setSelectedDetailExo(parseInt(e.target.value))}
+                    >
+                        {library.filter(l => !l.isArchived).sort((a,b) => a.name.localeCompare(b.name)).map(l => (
+                            <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                    </select>
+                </div>
+                
+                <div className="flex-1 w-full min-h-0 relative">
+                    {exerciseDetailData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={exerciseDetailData} margin={{ left: -10, right: 10, top: 5, bottom: 0 }}>
+                                <CartesianGrid stroke={PALETTE.border} strokeDasharray="3 3" vertical={false} />
+                                <XAxis 
+                                    dataKey="date" 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{fill: PALETTE.text.secondary, fontSize: 10, fontWeight: 600}} 
+                                    dy={10}
+                                    minTickGap={30}
+                                />
+                                <YAxis 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{fill: PALETTE.text.secondary, fontSize: 10, fontWeight: 600}} 
+                                    domain={niceDomain}
+                                    tickFormatter={(val) => (isTimeBased && detailMetric !== '1rm' && detailMetric !== 'volume') || (isCardio && detailMetric === 'tonnage') ? formatDuration(val) : val}
+                                />
+                                <Tooltip 
+                                    contentStyle={{backgroundColor: PALETTE.surface, border: '1px solid #334155', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)'}}
+                                    itemStyle={{color: '#fff', fontSize: '12px', fontWeight: 'bold'}}
+                                    formatter={(val: number) => (isTimeBased && detailMetric !== '1rm' && detailMetric !== 'volume') || (isCardio && detailMetric === 'tonnage') ? formatDuration(val) : val}
+                                />
+                                <Line 
+                                    type="monotone" 
+                                    dataKey="val" 
+                                    stroke={primaryColor} 
+                                    strokeWidth={3} 
+                                    dot={{fill: primaryColor, r: 4}}
+                                    activeDot={{r: 6, strokeWidth: 0}}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-secondary/40 text-xs italic">
+                            Pas assez de données
+                        </div>
+                    )}
+                </div>
+            </SectionCard>
+        </div>
     );
 };

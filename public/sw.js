@@ -1,12 +1,12 @@
 
-const CACHE_NAME = 'iron-tracker-v2.6.0';
+const CACHE_NAME = 'iron-tracker-v1.0.0-gold';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon.svg',
   'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap'
 ];
 
 // Installation du Service Worker
@@ -15,11 +15,11 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('[SW] Mise en cache des fichiers...');
+        console.log('[SW] Mise en cache des fichiers core...');
         return cache.addAll(URLS_TO_CACHE);
       })
       .catch((err) => {
-        console.error('[SW] Echec installation. Un fichier manque peut-être :', err);
+        console.error('[SW] Echec installation.', err);
       })
   );
 });
@@ -31,6 +31,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log('[SW] Suppression ancien cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -57,9 +58,8 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request).then((response) => {
-        // Mise en cache dynamique des nouvelles ressources valides
-        // On ne cache pas les extensions chrome ou autres protocoles non http
-        if (!event.request.url.startsWith('http')) return response;
+        // Mise en cache dynamique des nouvelles ressources valides (Chunks JS, etc.)
+        if (!event.request.url.startsWith('http') || event.request.method !== 'GET') return response;
         
         return caches.open(CACHE_NAME).then((cache) => {
              cache.put(event.request, response.clone());

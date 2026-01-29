@@ -3,7 +3,7 @@ export const EXERCISE_TYPES = {
   POLY: "Polyarticulaire",
   ISO: "Isolation",
   CARDIO: "Cardio",
-  ISOMETRIC: "Isométrique",
+  STATIC: "Statique",
   STRETCH: "Étirement"
 } as const;
 

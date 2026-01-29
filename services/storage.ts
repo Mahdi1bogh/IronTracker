@@ -5,8 +5,7 @@ import {
     WorkoutSession, 
     ExerciseInstance, 
     SetRecord, 
-    ProgramSession,
-    ExerciseType
+    ProgramSession
 } from "../types";
 import { 
     MinifiedLibraryItem, 
@@ -68,8 +67,8 @@ const dehydrateLibraryItem = (l: LibraryExercise): MinifiedLibraryItem => {
     const min: MinifiedLibraryItem = {
         i: l.id,
         n: l.name,
-        t: TYPE_MAP[l.type] || 'I', // Default Isolation if fail
-        m: MUSCLE_MAP[l.muscle] || 'OT', // Default Other
+        t: TYPE_MAP[l.type] || 'I', 
+        m: MUSCLE_MAP[l.muscle] || 'OT', 
         eq: l.equipment
     };
     if (l.isFavorite) min.f = 1;
@@ -79,7 +78,6 @@ const dehydrateLibraryItem = (l: LibraryExercise): MinifiedLibraryItem => {
         if (l.tips.setup && l.tips.setup.length) min.tp.s = l.tips.setup;
         if (l.tips.exec && l.tips.exec.length) min.tp.e = l.tips.exec;
         if (l.tips.mistake && l.tips.mistake.length) min.tp.m = l.tips.mistake;
-        // Clean empty object
         if (Object.keys(min.tp).length === 0) delete min.tp;
     }
     return min;
@@ -109,9 +107,6 @@ const dehydrateProgram = (p: Program): MinifiedProgram => {
 // --- HELPERS HYDRATION (Minified -> App) ---
 
 const hydrateSet = (ms: any): SetRecord => {
-    // Support Legacy (full keys) or Minified
-    if (ms.weight !== undefined) return ms as SetRecord; // Legacy
-
     return {
         weight: String(ms.w),
         reps: String(ms.r),
@@ -124,11 +119,6 @@ const hydrateSet = (ms: any): SetRecord => {
 };
 
 const hydrateExoInstance = (me: any): ExerciseInstance => {
-    if (me.exerciseId !== undefined) {
-        // Legacy fix for sets inside legacy exercise
-        return { ...me, sets: me.sets.map((s:any) => hydrateSet(s)) }; 
-    }
-
     return {
         exerciseId: me.e,
         target: me.t,
@@ -141,14 +131,6 @@ const hydrateExoInstance = (me: any): ExerciseInstance => {
 };
 
 const hydrateSession = (ms: any): WorkoutSession => {
-    if (ms.programName !== undefined) {
-        // Legacy
-        return {
-             ...ms,
-             exercises: ms.exercises.map(hydrateExoInstance)
-        };
-    }
-
     return {
         id: ms.i,
         programName: ms.pn,
@@ -162,13 +144,11 @@ const hydrateSession = (ms: any): WorkoutSession => {
 };
 
 const hydrateLibraryItem = (ml: any): LibraryExercise => {
-    if (ml.name !== undefined) return ml as LibraryExercise; // Legacy
-
     const lib: LibraryExercise = {
         id: ml.i,
         name: ml.n,
         type: REVERSE_TYPE_MAP[ml.t] || 'Isolation',
-        muscle: REVERSE_MUSCLE_MAP[ml.m] || ml.m, // Fallback if full name stored
+        muscle: REVERSE_MUSCLE_MAP[ml.m] || ml.m, 
         equipment: ml.eq
     };
     if (ml.f === 1) lib.isFavorite = true;
@@ -184,13 +164,6 @@ const hydrateLibraryItem = (ml: any): LibraryExercise => {
 };
 
 const hydrateProgram = (mp: any): Program => {
-    if (mp.sessions && mp.sessions[0] && mp.sessions[0].exos && mp.sessions[0].exos[0] && mp.sessions[0].exos[0].exerciseId !== undefined) {
-        return mp as Program; // Legacy
-    }
-    
-    // Handle V11 where sessions might be missing or V12 minified
-    if (mp.sessions && !mp.s) return mp; // Legacy semi-migrated
-
     return {
         id: mp.i,
         name: mp.n,

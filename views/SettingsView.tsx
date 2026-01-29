@@ -147,7 +147,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   Zone de Danger : Reset
               </button>
               <div className="text-center mt-4 text-[10px] text-secondary font-mono">
-                  v2.6.0 • Build 2026
+                  v1.0.0 (Gold) • IronTracker
               </div>
           </div>
       </div>

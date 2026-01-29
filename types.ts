@@ -31,7 +31,7 @@ export interface WorkoutSession {
   mode?: 'active' | 'log';
 }
 
-export type ExerciseType = 'Isolation' | 'Polyarticulaire' | 'Cardio' | 'Isométrique' | 'Étirement';
+export type ExerciseType = 'Isolation' | 'Polyarticulaire' | 'Cardio' | 'Statique' | 'Étirement';
 
 export interface LibraryExercise {
   id: number; // Primary Key (Numeric)
@@ -66,7 +66,7 @@ export interface Program {
   sessions: ProgramSession[];
 }
 
-export type AccentColor = 'blue' | 'emerald' | 'gold' | 'purple' | 'red' | 'cyan' | 'gray';
+export type AccentColor = 'blue' | 'orange' | 'emerald' | 'gold' | 'purple' | 'red' | 'cyan' | 'gray';
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;

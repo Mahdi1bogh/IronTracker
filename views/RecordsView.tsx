@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { SectionCard } from '../components/ui/SectionCard';
-import { getExerciseStats } from '../utils';
+import { getExerciseStats, formatDuration } from '../utils';
 import { Icons } from '../components/Icons';
 
 export const RecordsView: React.FC = () => {
@@ -17,7 +17,8 @@ export const RecordsView: React.FC = () => {
         .sort((a,b) => (a.isFavorite === b.isFavorite) ? a.name.localeCompare(b.name) : (a.isFavorite ? -1 : 1))
         .map(l => {
             const stats = getExerciseStats(l.id, history, l.type);
-            if (stats.pr === 0 && stats.prMax === 0 && stats.lastDetailed === "-") return null;
+            // Ignore if no data
+            if (stats.lastDetailed === "-") return null;
             return { l, stats };
         })
         .filter(Boolean);
@@ -38,6 +39,10 @@ export const RecordsView: React.FC = () => {
               <div className="space-y-4">
                   {recordsList.map(item => {
                       const { l, stats } = item!;
+                      const isCardio = l.type === 'Cardio';
+                      const isStatic = l.type === 'Statique' || l.type === 'Étirement';
+                      const isStandard = !isCardio && !isStatic;
+
                       return (
                           <SectionCard key={l.id} className="p-4 flex flex-col gap-2">
                               <div className="flex justify-between items-start">
@@ -48,22 +53,48 @@ export const RecordsView: React.FC = () => {
                                   <div className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-surface2 text-secondary">{l.muscle}</div>
                               </div>
                               
-                              <div className="grid grid-cols-2 gap-4 mt-2">
-                                  {l.type !== 'Cardio' && l.type !== 'Isométrique' && l.type !== 'Étirement' && (
-                                      <div className="bg-surface2/30 p-2 rounded-xl text-center">
-                                          <div className="text-[9px] text-secondary uppercase">Meilleur 1RM</div>
-                                          <div className="font-black text-lg text-primary">{stats.pr} <span className="text-xs text-secondary font-normal">kg</span></div>
+                              <div className={`grid ${isCardio ? 'grid-cols-3' : 'grid-cols-2'} gap-4 mt-2`}>
+                                  {isStandard && (
+                                      <>
+                                          <div className="bg-surface2/30 p-2 rounded-xl text-center">
+                                              <div className="text-[9px] text-secondary uppercase">Meilleur 1RM</div>
+                                              <div className="font-black text-lg text-primary">{stats.pr} <span className="text-xs text-secondary font-normal">kg</span></div>
+                                          </div>
+                                          <div className="bg-surface2/30 p-2 rounded-xl text-center">
+                                              <div className="text-[9px] text-secondary uppercase">Poids Max</div>
+                                              <div className="font-black text-lg text-white">{stats.prMax} <span className="text-xs text-secondary font-normal">kg</span></div>
+                                          </div>
+                                      </>
+                                  )}
+
+                                  {isStatic && (
+                                      <div className="bg-surface2/30 p-2 rounded-xl text-center col-span-2">
+                                          <div className="text-[9px] text-secondary uppercase">Temps Max</div>
+                                          <div className="font-black text-lg text-primary">{formatDuration(stats.maxDuration)}</div>
                                       </div>
                                   )}
-                                  <div className="bg-surface2/30 p-2 rounded-xl text-center">
-                                      <div className="text-[9px] text-secondary uppercase">{l.type === 'Cardio' ? "Max Lvl" : "Poids Max"}</div>
-                                      <div className="font-black text-lg text-white">{stats.prMax} <span className="text-xs text-secondary font-normal">{l.type === 'Cardio' ? "" : "kg"}</span></div>
-                                  </div>
+
+                                  {isCardio && (
+                                      <>
+                                          <div className="bg-surface2/30 p-2 rounded-xl text-center">
+                                              <div className="text-[9px] text-secondary uppercase">Max Dist</div>
+                                              <div className="font-black text-sm text-white">{stats.maxDistance} <span className="text-[9px]">m</span></div>
+                                          </div>
+                                           <div className="bg-surface2/30 p-2 rounded-xl text-center">
+                                              <div className="text-[9px] text-secondary uppercase">Max Durée</div>
+                                              <div className="font-black text-sm text-white">{formatDuration(stats.maxDuration)}</div>
+                                          </div>
+                                          <div className="bg-surface2/30 p-2 rounded-xl text-center">
+                                              <div className="text-[9px] text-secondary uppercase">Max Lvl</div>
+                                              <div className="font-black text-sm text-primary">{stats.prMax}</div>
+                                          </div>
+                                      </>
+                                  )}
                               </div>
                               
                               <div className="mt-2 pt-2 border-t border-border/30 flex justify-between items-center text-xs">
                                   <span className="text-secondary">Dernière perf:</span>
-                                  <span className="font-mono font-bold">{stats.lastDetailed}</span>
+                                  <span className="font-mono font-bold text-[10px]">{stats.lastDetailed}</span>
                               </div>
                           </SectionCard>
                       );

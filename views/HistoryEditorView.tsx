@@ -7,18 +7,10 @@ import { EditorHeader } from '../components/ui/EditorHeader';
 import { SectionCard } from '../components/ui/SectionCard';
 import { Modal } from '../components/ui/Modal';
 import { Icons } from '../components/Icons';
-import { triggerHaptic } from '../utils';
+import { triggerHaptic, moveItem } from '../utils';
 import { EQUIPMENTS } from '../data/equipments';
 import { TYPE_COLORS } from '../constants';
 import { useConfirm } from '../hooks/useConfirm';
-
-const moveItem = <T,>(arr: T[], from: number, to: number): T[] => {
-    if (to < 0 || to >= arr.length) return arr;
-    const newArr = [...arr];
-    const [item] = newArr.splice(from, 1);
-    newArr.splice(to, 0, item);
-    return newArr;
-};
 
 export const HistoryEditorView: React.FC = () => {
     const { id } = useParams();
@@ -117,6 +109,13 @@ export const HistoryEditorView: React.FC = () => {
         });
     };
 
+    // Bloquer les caractères non désirés (- et e)
+    const preventNegative = (e: React.KeyboardEvent) => {
+        if (['-', 'e', 'E'].includes(e.key)) {
+            e.preventDefault();
+        }
+    };
+
     return (
           <div className="space-y-6 animate-slide-in-bottom pb-24">
               <EditorHeader 
@@ -149,15 +148,15 @@ export const HistoryEditorView: React.FC = () => {
                   <div className="grid grid-cols-3 gap-2">
                       <div className="space-y-1">
                            <label className="text-[9px] uppercase text-secondary">Durée (min)</label>
-                           <input type="number" inputMode="decimal" value={historyDuration} onChange={e => { setHistoryDuration(e.target.value); setIsDirty(true); }} className="w-full bg-surface2 p-2 rounded-xl text-xs font-bold outline-none" />
+                           <input type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" value={historyDuration} onChange={e => { setHistoryDuration(e.target.value); setIsDirty(true); }} className="w-full bg-surface2 p-2 rounded-xl text-xs font-bold outline-none" />
                       </div>
                       <div className="space-y-1">
                            <label className="text-[9px] uppercase text-secondary">Poids (kg)</label>
-                           <input type="number" inputMode="decimal" value={editingHistorySession.bodyWeight} onChange={e => handleUpdate({...editingHistorySession, bodyWeight: e.target.value})} className="w-full bg-surface2 p-2 rounded-xl text-xs font-bold outline-none" />
+                           <input type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" value={editingHistorySession.bodyWeight} onChange={e => handleUpdate({...editingHistorySession, bodyWeight: e.target.value})} className="w-full bg-surface2 p-2 rounded-xl text-xs font-bold outline-none" />
                       </div>
                       <div className="space-y-1">
                            <label className="text-[9px] uppercase text-secondary">Forme (1-5)</label>
-                           <input type="number" inputMode="numeric" min="1" max="5" value={editingHistorySession.fatigue} onChange={e => handleUpdate({...editingHistorySession, fatigue: e.target.value})} className="w-full bg-surface2 p-2 rounded-xl text-xs font-bold outline-none" />
+                           <input type="number" min="1" max="5" onKeyDown={preventNegative} inputMode="numeric" value={editingHistorySession.fatigue} onChange={e => handleUpdate({...editingHistorySession, fatigue: e.target.value})} className="w-full bg-surface2 p-2 rounded-xl text-xs font-bold outline-none" />
                       </div>
                   </div>
               </SectionCard>
@@ -165,10 +164,10 @@ export const HistoryEditorView: React.FC = () => {
               {editingHistorySession.exercises.map((exo, eIdx) => {
                   const libEx = getExerciseById(exo.exerciseId);
                   const isCardio = libEx?.type === 'Cardio';
-                  const isStatic = libEx?.type === 'Isométrique' || libEx?.type === 'Étirement';
+                  const isStatic = libEx?.type === 'Statique' || libEx?.type === 'Étirement';
                   return (
                       <SectionCard key={eIdx} className="overflow-hidden">
-                          <div className="p-4 bg-surface2/20 flex justify-between items-center border-b border-border">
+                          <div className="p-4 bg-surface2/20 flex justify-between items-center border-b border-white/10">
                                <div className="flex gap-3 items-center">
                                    <div className="flex flex-col gap-1">
                                       {eIdx > 0 && <button onClick={() => { const newExos = moveItem(editingHistorySession.exercises, eIdx, eIdx - 1); handleUpdate({...editingHistorySession, exercises: newExos}); }} className="p-0.5 text-secondary hover:text-white"><Icons.ChevronUp size={14} /></button>}
@@ -179,14 +178,14 @@ export const HistoryEditorView: React.FC = () => {
                                <div className="flex items-center gap-1">
                                    <button 
                                       onClick={() => setExpandedNotes(prev => ({...prev, [`hist_${eIdx}`]: !prev[`hist_${eIdx}`]}))}
-                                      className={`p-1.5 rounded-lg border transition-all ${exo.notes ? 'bg-secondary/20 text-white border-secondary/40' : 'text-secondary/50 border-secondary/20 hover:text-white'}`}
-                                   ><Icons.Note /></button>
-                                   <button onClick={() => { triggerHaptic('error'); onDeleteExercise(eIdx); }} className="text-danger p-1"><Icons.Trash size={18} /></button>
+                                      className={`p-2 rounded-lg transition-colors ${exo.notes ? 'text-white bg-surface2' : 'text-secondary hover:text-white'}`}
+                                   ><Icons.Note size={18} /></button>
+                                   <button onClick={() => { triggerHaptic('error'); onDeleteExercise(eIdx); }} className="p-2 text-danger/50 hover:text-danger rounded-lg"><Icons.Trash size={18} /></button>
                                </div>
                           </div>
                           
                           {expandedNotes[`hist_${eIdx}`] && (
-                             <div className="px-4 py-2 border-b border-border/30 bg-surface2/10">
+                             <div className="px-4 py-2 border-b border-white/10 bg-surface2/10">
                                 <textarea 
                                    value={exo.notes || ''} 
                                    onChange={(e) => {
@@ -196,7 +195,7 @@ export const HistoryEditorView: React.FC = () => {
                                    }}
                                    maxLength={280}
                                    rows={2}
-                                   className="w-full bg-background border border-border rounded-xl p-3 text-xs font-mono outline-none focus:border-primary placeholder-secondary/30"
+                                   className="w-full bg-background border border-white/10 rounded-xl p-3 text-xs font-mono outline-none focus:border-primary placeholder-secondary/30"
                                    placeholder="Note pour cette séance..."
                                 />
                              </div>
@@ -227,14 +226,14 @@ export const HistoryEditorView: React.FC = () => {
                                           </button>
                                       </div>
                                       
-                                      <input type="text" inputMode="decimal" className="col-span-3 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent" placeholder={isCardio?"Lvl":"kg"} value={set.weight} onChange={e => updateHistorySet(eIdx, sIdx, 'weight', e.target.value)} />
-                                      <input type="text" inputMode="decimal" className="col-span-3 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent" placeholder={isCardio?"Dist (m)":isStatic?"T (s)":"reps"} value={set.reps} onChange={e => updateHistorySet(eIdx, sIdx, 'reps', e.target.value)} />
-                                      <input type="text" inputMode="decimal" className="col-span-2 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent" placeholder={isCardio?"T (min)":"RIR"} value={set.rir || ''} onChange={e => updateHistorySet(eIdx, sIdx, 'rir', e.target.value)} />
+                                      <input type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" className="col-span-3 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent" placeholder={isCardio?"Lvl":"kg"} value={set.weight} onChange={e => updateHistorySet(eIdx, sIdx, 'weight', e.target.value)} />
+                                      <input type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" className="col-span-3 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent" placeholder={isCardio?"Dist (m)":isStatic?"T (s)":"reps"} value={set.reps} onChange={e => updateHistorySet(eIdx, sIdx, 'reps', e.target.value)} />
+                                      <input type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" className="col-span-2 bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary border border-transparent" placeholder={isCardio?"T (min)":"RIR"} value={set.rir || ''} onChange={e => updateHistorySet(eIdx, sIdx, 'rir', e.target.value)} />
                                       
                                       <div className="col-span-2 flex items-center justify-end">
                                           <button 
                                             onClick={() => updateHistorySet(eIdx, sIdx, 'done', !set.done)} 
-                                            className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all ${set.done ? 'bg-success border-success text-white' : 'bg-surface2 border-border text-secondary/30'}`}
+                                            className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all ${set.done ? 'bg-success border-success text-white' : 'bg-surface2 border-white/10 text-secondary/30'}`}
                                           >✓</button>
                                       </div>
                                   </div>
@@ -244,7 +243,7 @@ export const HistoryEditorView: React.FC = () => {
                                    const last = newExos[eIdx].sets[newExos[eIdx].sets.length-1];
                                    newExos[eIdx].sets.push({ weight: last?.weight||"", reps: last?.reps||"", done: true, rir: last?.rir||"" });
                                    handleUpdate({...editingHistorySession, exercises: newExos});
-                              }} className="w-full py-2 bg-surface2/50 rounded-xl text-[10px] font-bold uppercase text-secondary border border-dashed border-border/50 hover:border-primary/50 transition-colors flex items-center justify-center gap-2">
+                              }} className="w-full py-2 bg-surface2/50 rounded-xl text-[10px] font-bold uppercase text-secondary border border-dashed border-white/10 hover:border-primary/50 transition-colors flex items-center justify-center gap-2">
                                   <Icons.Plus size={12} /> Série
                               </button>
                           </div>
@@ -252,7 +251,7 @@ export const HistoryEditorView: React.FC = () => {
                   );
               })}
               
-              <button onClick={() => setShowAddExoModal(true)} className="w-full py-4 border-2 border-dashed border-border rounded-[2rem] text-secondary font-black uppercase hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2">
+              <button onClick={() => setShowAddExoModal(true)} className="w-full py-4 border-2 border-dashed border-white/10 rounded-[2rem] text-secondary font-black uppercase hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2">
                   <Icons.Plus size={18} /> Ajouter Exercice
               </button>
               

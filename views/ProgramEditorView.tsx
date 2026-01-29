@@ -73,8 +73,15 @@ export const ProgramEditorView: React.FC = () => {
         });
     };
 
+    // Bloquer les caractères non désirés (- et e)
+    const preventNegative = (e: React.KeyboardEvent) => {
+        if (['-', 'e', 'E'].includes(e.key)) {
+            e.preventDefault();
+        }
+    };
+
     return (
-          <div className="space-y-6 animate-slide-in-bottom pb-20">
+          <div className="space-y-6 animate-zoom-in pb-20">
               <EditorHeader 
                  title={editingProgram.name} 
                  onCancel={() => { 
@@ -122,7 +129,7 @@ export const ProgramEditorView: React.FC = () => {
                   
                   <div className="space-y-6">
                       {editingProgram.sessions.map((sess, sIdx) => (
-                          <div key={sess.id} className="bg-surface2/30 rounded-2xl border border-border p-4">
+                          <div key={sess.id} className="bg-surface2/30 rounded-2xl border border-white/5 p-4">
                               <div className="flex justify-between items-center mb-4 gap-2">
                                   <div className="flex flex-col gap-1">
                                       {sIdx > 0 && <button onClick={() => { const newSess = [...editingProgram.sessions]; const item = newSess.splice(sIdx, 1)[0]; newSess.splice(sIdx - 1, 0, item); handleUpdate({...editingProgram, sessions: newSess}); }} className="p-1 bg-surface2 rounded text-secondary hover:text-white"><Icons.ChevronUp size={14} /></button>}
@@ -133,13 +140,13 @@ export const ProgramEditorView: React.FC = () => {
                                       newSess[sIdx].name = e.target.value;
                                       handleUpdate({...editingProgram, sessions: newSess});
                                   }} className="bg-transparent font-bold text-sm outline-none w-full" placeholder="Nom séance" />
-                                  <button onClick={() => { triggerHaptic('error'); onDeleteSession(sIdx); }} className="text-danger bg-danger/10 p-2 rounded-lg hover:bg-danger/20"><Icons.Trash size={16} /></button>
+                                  <button onClick={() => { triggerHaptic('error'); onDeleteSession(sIdx); }} className="p-2 text-danger/50 hover:text-danger rounded-lg"><Icons.Trash size={16} /></button>
                               </div>
                               <div className="space-y-2">
                                   {sess.exos.map((ex, eIdx) => {
                                       const libEx = getExerciseById(ex.exerciseId);
                                       return (
-                                          <div key={eIdx} className="bg-surface2/50 p-3 rounded-xl flex flex-col gap-2 relative border border-transparent hover:border-border transition-colors">
+                                          <div key={eIdx} className="bg-surface2/50 p-3 rounded-xl flex flex-col gap-2 relative border border-transparent hover:border-white/10 transition-colors">
                                               <div className="flex justify-between items-start gap-3">
                                                    <div className="flex flex-col gap-1 pt-1">
                                                        {eIdx > 0 && <button onClick={() => { const newSess = [...editingProgram.sessions]; const item = newSess[sIdx].exos.splice(eIdx, 1)[0]; newSess[sIdx].exos.splice(eIdx - 1, 0, item); handleUpdate({...editingProgram, sessions: newSess}); }} className="p-0.5 hover:text-white text-secondary"><Icons.ChevronUp size={14} /></button>}
@@ -157,7 +164,7 @@ export const ProgramEditorView: React.FC = () => {
                                               <div className="grid grid-cols-4 gap-2 pl-6">
                                                   <div className="space-y-0.5">
                                                       <label className="text-[8px] uppercase text-secondary">Sets</label>
-                                                      <input type="number" inputMode="decimal" value={ex.sets} onChange={e => {
+                                                      <input type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" value={ex.sets} onChange={e => {
                                                           const newSess = [...editingProgram.sessions];
                                                           newSess[sIdx].exos[eIdx].sets = parseInt(e.target.value) || 0;
                                                           handleUpdate({...editingProgram, sessions: newSess});
@@ -181,7 +188,7 @@ export const ProgramEditorView: React.FC = () => {
                                                   </div>
                                                   <div className="space-y-0.5">
                                                       <label className="text-[8px] uppercase text-secondary">Rest</label>
-                                                      <input type="number" inputMode="decimal" value={ex.rest} onChange={e => {
+                                                      <input type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" value={ex.rest} onChange={e => {
                                                           const newSess = [...editingProgram.sessions];
                                                           newSess[sIdx].exos[eIdx].rest = parseInt(e.target.value) || 0;
                                                           handleUpdate({...editingProgram, sessions: newSess});
@@ -191,7 +198,7 @@ export const ProgramEditorView: React.FC = () => {
                                           </div>
                                       );
                                   })}
-                                  <button onClick={() => { triggerHaptic('click'); setProgramExoPicker(sIdx); setLibraryFilter(''); }} className="w-full py-2 border border-dashed border-border rounded-xl text-[10px] uppercase text-secondary hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-2">
+                                  <button onClick={() => { triggerHaptic('click'); setProgramExoPicker(sIdx); setLibraryFilter(''); }} className="w-full py-2 border border-dashed border-white/10 rounded-xl text-[10px] uppercase text-secondary hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-2">
                                       <Icons.Plus size={14} /> Ajouter Exercice
                                   </button>
                               </div>

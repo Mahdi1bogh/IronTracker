@@ -8,12 +8,11 @@ interface IconProps {
   size?: number;
 }
 
-// Wrapper pour garantir l'uniformité du Design System
 const IconWrapper: React.FC<{ children: React.ReactNode } & IconProps> = ({ 
   children, 
   className = "", 
   fill = "none", 
-  strokeWidth = 2,
+  strokeWidth = 1.5, // Standardized to 1.5px
   size = 24
 }) => (
   <svg 
@@ -42,6 +41,21 @@ export const Icons = {
       <rect width="7" height="5" x="3" y="16" rx="1" />
     </IconWrapper>
   ),
+  Repeat: (props: IconProps) => (
+    <IconWrapper {...props}>
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+    </IconWrapper>
+  ),
+  Layers: (props: IconProps) => (
+    <IconWrapper {...props}>
+      <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+      <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+      <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
+    </IconWrapper>
+  ),
   Programs: (props: IconProps) => (
     <IconWrapper {...props}>
       <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
@@ -63,13 +77,6 @@ export const Icons = {
       <circle cx="12" cy="12" r="3" />
     </IconWrapper>
   ),
-
-  // Feature Icons
-  Workout: (props: IconProps) => (
-    <IconWrapper {...props} fill={props.fill === 'currentColor' ? 'currentColor' : 'none'}>
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </IconWrapper>
-  ),
   Dumbbell: (props: IconProps) => (
     <IconWrapper {...props}>
       <path d="m6.5 6.5 11 11" />
@@ -79,13 +86,6 @@ export const Icons = {
       <path d="m2 6 4-4" />
       <path d="m3 10 7-7" />
       <path d="m14 21 7-7" />
-    </IconWrapper>
-  ),
-  Analytics: (props: IconProps) => (
-    <IconWrapper {...props}>
-      <line x1="18" x2="18" y1="20" y2="10" />
-      <line x1="12" x2="12" y1="20" y2="4" />
-      <line x1="6" x2="6" y1="20" y2="14" />
     </IconWrapper>
   ),
   TrendUp: (props: IconProps) => (
@@ -117,21 +117,13 @@ export const Icons = {
       <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
     </IconWrapper>
   ),
-
-  // Updated & New Icons
   Disc: (props: IconProps) => (
     <IconWrapper {...props}>
         <circle cx="12" cy="12" r="10" />
         <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v2" />
-        <path d="M12 20v2" />
-        <path d="M2 12h2" />
-        <path d="M20 12h2" />
-        <circle cx="12" cy="12" r="6" strokeOpacity="0.4" />
+        <path d="M12 6a6 6 0 0 1 0 12" strokeOpacity="0.3" />
     </IconWrapper>
   ),
-  
-  // PROPOSALS (New)
   User: (props: IconProps) => (
     <IconWrapper {...props}>
       <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
@@ -143,15 +135,6 @@ export const Icons = {
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
       <path d="M12 7v5l4 2" />
-    </IconWrapper>
-  ),
-  Trophy: (props: IconProps) => (
-    <IconWrapper {...props}>
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M4 22h16" />
-      <path d="M12 17V7" />
-      <path d="M2 7h20v4a8 8 0 0 1-16 0V7Z" />
     </IconWrapper>
   ),
   Flame: (props: IconProps) => (
@@ -168,8 +151,6 @@ export const Icons = {
       <path d="M12 2v4" />
     </IconWrapper>
   ),
-
-  // UI Elements
   Calendar: (props: IconProps) => (
     <IconWrapper {...props}>
       <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
@@ -273,9 +254,9 @@ export const Icons = {
       <path d="m9 18 6-6-6-6" />
     </IconWrapper>
   ),
-  Tools: (props: IconProps) => (
+  Play: (props: IconProps) => (
     <IconWrapper {...props}>
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      <polygon points="6 3 20 12 6 21 6 3" />
     </IconWrapper>
   ),
   Calculator: (props: IconProps) => (
@@ -290,6 +271,12 @@ export const Icons = {
        <path d="M8 14h.01" />
        <path d="M12 18h.01" />
        <path d="M8 18h.01" />
+    </IconWrapper>
+  ),
+  BookOpen: (props: IconProps) => (
+    <IconWrapper {...props}>
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
     </IconWrapper>
   )
 };

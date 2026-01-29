@@ -7,7 +7,7 @@ export const TYPE_MAP: Record<ExerciseType, string> = {
   'Polyarticulaire': 'P',
   'Isolation': 'I',
   'Cardio': 'C',
-  'Isométrique': 'S', // Static
+  'Statique': 'S', 
   'Étirement': 'E'
 };
 

@@ -7,9 +7,8 @@
     
     <!-- PWA Configuration -->
     <title>IronTracker</title>
-    <meta name="theme-color" content="#0d1117">
+    <meta name="theme-color" content="#020617">
     <meta name="description" content="Suivi de performance musculation : Programmes, Analytics, et Progression.">
-    <!-- Cache Busting: Adding version query to force manifest reload -->
     <link rel="manifest" href="/manifest.json?v=2.6.0">
     <link rel="icon" type="image/svg+xml" href="/icon.svg">
     <link rel="apple-touch-icon" href="/icon.svg">
@@ -17,25 +16,24 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              background: '#0d1117',
-              surface: '#161b22',
-              surface2: '#21262d',
-              border: '#30363d',
+              background: '#020617', // Slate 950
+              surface: '#0f172a',    // Slate 900
+              surface2: '#1e293b',   // Slate 800
+              border: '#334155',     // Slate 700
               primary: 'var(--primary)',
-              secondary: '#8b949e',
-              success: '#238636',
-              danger: '#da3633',
-              warning: '#fb8c00',
-              gold: '#d29922',
-              cyan1rm: '#00ffcc',
-              purpleEquip: '#a371f7'
+              secondary: '#94a3b8',  // Slate 400
+              success: '#00e17a',
+              danger: '#f04248',
+              warning: '#ffd21f',
+              gold: '#ffd21f',
+              orange: '#FF5F1F'
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
@@ -57,13 +55,18 @@
               pulseSubtle: {
                 '0%, 100%': { opacity: '1' },
                 '50%': { opacity: '0.8' },
+              },
+              glow: {
+                '0%, 100%': { boxShadow: '0 0 15px var(--primary-glow)' },
+                '50%': { boxShadow: '0 0 25px var(--primary-glow)' },
               }
             },
             animation: {
               'fade-in': 'fadeIn 0.2s ease-out forwards',
               'zoom-in': 'zoomIn 0.25s cubic-bezier(0.2, 0, 0.2, 1) forwards',
               'slide-in-bottom': 'slideInBottom 0.3s cubic-bezier(0.2, 0, 0.2, 1) forwards',
-              'pulse-slow': 'pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+              'pulse-slow': 'pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'glow': 'glow 3s infinite'
             }
           }
         }
@@ -75,8 +78,9 @@
         --primary-glow: rgba(88,166,255,0.3);
       }
       body {
-        background-color: #0d1117;
-        color: #c9d1d9;
+        background: radial-gradient(circle at top left, #1e293b 0%, #020617 40%, #000000 100%);
+        background-attachment: fixed;
+        color: #e2e8f0;
         -webkit-tap-highlight-color: transparent;
         font-family: 'Inter', sans-serif;
       }
@@ -91,6 +95,13 @@
       input[type="number"]::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
+      }
+      /* Glassmorphism utility */
+      .glass {
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
     </style>
 <script type="importmap">
@@ -110,20 +121,13 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="antialiased">
+<body class="antialiased selection:bg-primary/30 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
-      // Enregistrement du Service Worker pour la PWA
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-              console.log('SW registered: ', registration);
-            })
-            .catch(registrationError => {
-              console.log('SW registration failed: ', registrationError);
-            });
+          navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW fail', err));
         });
       }
     </script>

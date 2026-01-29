@@ -18,8 +18,26 @@ export const TYPE_COLORS: Record<ExerciseType, string> = {
   'Polyarticulaire': PALETTE.accents.red.primary,
   'Isolation': PALETTE.accents.blue.primary,
   'Cardio': PALETTE.accents.emerald.primary,
-  'Isométrique': PALETTE.accents.purple.primary,
-  'Étirement': PALETTE.accents.gray.primary
+  'Statique': PALETTE.accents.purple.primary,
+  'Étirement': PALETTE.text.secondary // Gris neutre
+};
+
+export const MUSCLE_COLORS: Record<string, string> = {
+  'Pectoraux': PALETTE.muscle.pecs,
+  'Dos': PALETTE.muscle.back,
+  'Jambes': PALETTE.muscle.legs,
+  'Épaules': PALETTE.muscle.shoulders,
+  'Bras': PALETTE.muscle.arms,
+  'Abdos': PALETTE.muscle.abs,
+  'Mollets': PALETTE.muscle.calves,
+  'Avant-bras': PALETTE.muscle.forearms,
+  'Cardio': PALETTE.muscle.cardio,
+  'Cou': PALETTE.muscle.neck
+};
+
+export const MUSCLE_GROUPS = {
+    PRIMARY: ['Pectoraux', 'Dos', 'Quadriceps', 'Ischios', 'Jambes'], // Jambes générique inclus en Primary
+    SECONDARY: ['Biceps', 'Triceps', 'Bras', 'Épaules', 'Mollets', 'Abdos', 'Avant-bras', 'Cou']
 };
 
 export const FATIGUE_COLORS: Record<string, string> = PALETTE.fatigue;

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { LibraryExercise, ExerciseType } from '../types';
 import { triggerHaptic } from '../utils';
@@ -12,12 +12,31 @@ import { useConfirm } from '../hooks/useConfirm';
 
 const MUSCLE_ORDER = ['Pectoraux', 'Dos', 'Épaules', 'Bras', 'Avant-bras', 'Abdos', 'Jambes', 'Mollets', 'Cou', 'Cardio'];
 
+// Configuration des cycles de filtres
+const TYPE_FILTERS = [null, ...EXERCISE_TYPE_LIST];
+const TYPE_LABELS: Record<string, string> = {
+    'Polyarticulaire': 'Poly.',
+    'Isolation': 'Isol.',
+    'Statique': 'Stat.',
+    'Cardio': 'Card.',
+    'Étirement': 'Etir.'
+};
+
+// Ordre optimisé pour les équipements les plus courants
+const EQUIP_FILTERS = [
+    null, 
+    'BW', 'BB', 'DB', 'CB', 'EM', // Top 5
+    'SM', 'EZ', 'KB', 'RB', 'PL', 'TB', 'OT' // Reste
+];
+
 export const LibraryView: React.FC = () => {
     const library = useStore(s => s.library);
     const setLibrary = useStore(s => s.setLibrary);
     const confirm = useConfirm();
     
     const [libraryFilter, setLibraryFilter] = useState('');
+    const [typeFilterIdx, setTypeFilterIdx] = useState(0);
+    const [equipFilterIdx, setEquipFilterIdx] = useState(0);
     const [editingExercise, setEditingExercise] = useState<LibraryExercise | null>(null);
 
     const onDeleteExercise = (id: number) => {
@@ -39,11 +58,79 @@ export const LibraryView: React.FC = () => {
         setLibrary(prev => prev.map(l => l.id === id ? { ...l, isFavorite: !l.isFavorite } : l));
     };
 
+    // --- Filter Logic ---
+    const activeType = TYPE_FILTERS[typeFilterIdx];
+    const activeEquip = EQUIP_FILTERS[equipFilterIdx];
+
+    const cycleType = () => {
+        triggerHaptic('click');
+        setTypeFilterIdx(prev => (prev + 1) % TYPE_FILTERS.length);
+    };
+
+    const cycleEquip = () => {
+        triggerHaptic('click');
+        setEquipFilterIdx(prev => (prev + 1) % EQUIP_FILTERS.length);
+    };
+
+    // Reset rapide au clic long
+    const resetFilter = (setter: React.Dispatch<React.SetStateAction<number>>) => (e: React.MouseEvent) => {
+        e.preventDefault();
+        triggerHaptic('warning');
+        setter(0);
+    };
+
+    const filteredLibrary = useMemo(() => {
+        return library.filter(l => {
+            if (l.isArchived) return false;
+            
+            // Text Search
+            if (libraryFilter) {
+                const searchLower = libraryFilter.toLowerCase();
+                const matchName = l.name.toLowerCase().includes(searchLower);
+                const matchMuscle = l.muscle.toLowerCase().includes(searchLower);
+                if (!matchName && !matchMuscle) return false;
+            }
+
+            // Type Filter
+            if (activeType && l.type !== activeType) return false;
+
+            // Equip Filter
+            if (activeEquip && l.equipment !== activeEquip) return false;
+
+            return true;
+        }).sort((a,b) => (a.isFavorite === b.isFavorite) ? a.name.localeCompare(b.name) : (a.isFavorite ? -1 : 1));
+    }, [library, libraryFilter, activeType, activeEquip]);
+
     return (
       <div className="space-y-4 animate-fade-in pb-24 h-full flex flex-col">
-          <div className="flex justify-between items-center px-1">
-              <h2 className="text-2xl font-black italic uppercase">Bibliothèque</h2>
-              <div className="text-xs font-bold text-secondary bg-surface2 px-3 py-1 rounded-full">{library.filter(l => !l.isArchived).length} Exos</div>
+          <div className="flex justify-between items-center px-1 gap-2">
+              <h2 className="text-2xl font-black italic uppercase truncate">Bibliothèque</h2>
+              
+              {/* Filter Pills Group */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {/* Equip Filter */}
+                  <button 
+                      onClick={cycleEquip}
+                      onContextMenu={resetFilter(setEquipFilterIdx)}
+                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent ${activeEquip ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
+                  >
+                      {activeEquip ? activeEquip : 'Equip.'}
+                  </button>
+
+                  {/* Type Filter */}
+                  <button 
+                      onClick={cycleType}
+                      onContextMenu={resetFilter(setTypeFilterIdx)}
+                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent ${activeType ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
+                  >
+                      {activeType && typeof activeType === 'string' ? TYPE_LABELS[activeType] : 'Type'}
+                  </button>
+
+                  {/* Count Pill */}
+                  <div className="h-7 px-2.5 flex items-center justify-center rounded-full bg-surface2 text-secondary text-[9px] font-bold border border-white/5">
+                      {filteredLibrary.length}
+                  </div>
+              </div>
           </div>
 
           <div className="space-y-2">
@@ -71,7 +158,7 @@ export const LibraryView: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
-              {library.filter(l => !l.isArchived && (l.name.toLowerCase().includes(libraryFilter.toLowerCase()) || l.muscle.toLowerCase().includes(libraryFilter.toLowerCase()))).sort((a,b) => (a.isFavorite === b.isFavorite) ? a.name.localeCompare(b.name) : (a.isFavorite ? -1 : 1)).map(l => (
+              {filteredLibrary.map(l => (
                   <div key={l.id} className="bg-surface border border-transparent hover:border-border p-3 rounded-2xl flex justify-between items-center group cursor-pointer transition-all active:scale-95" onClick={() => { triggerHaptic('click'); setEditingExercise(l); }}>
                       <div className="flex items-center gap-3">
                           <button onClick={(e) => onToggleFavorite(l.id, e)} className={`text-lg transition-transform hover:scale-110 ${l.isFavorite ? 'text-gold' : 'text-secondary/20'}`}>
@@ -82,6 +169,8 @@ export const LibraryView: React.FC = () => {
                               <div className="flex gap-2 mt-1">
                                   <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-surface2 text-secondary">{l.muscle}</span>
                                   <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-surface2" style={{ color: TYPE_COLORS[l.type] }}>{l.type}</span>
+                                  {/* Badge Équipement discret si filtre actif pour confirmer visuellement */}
+                                  {activeEquip && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-surface2 text-white/50">{l.equipment}</span>}
                               </div>
                           </div>
                       </div>
@@ -90,8 +179,10 @@ export const LibraryView: React.FC = () => {
                       </div>
                   </div>
               ))}
-              {libraryFilter && library.filter(l => !l.isArchived && l.name.toLowerCase().includes(libraryFilter.toLowerCase())).length === 0 && (
-                  <div className="text-center py-10 text-secondary">Aucun exercice trouvé.</div>
+              {filteredLibrary.length === 0 && (
+                  <div className="text-center py-10 text-secondary">
+                      {library.length === 0 ? "Bibliothèque vide." : "Aucun exercice ne correspond aux filtres."}
+                  </div>
               )}
           </div>
 

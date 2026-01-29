@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SectionCard } from '../components/ui/SectionCard';
-import { calculate1RM, triggerHaptic } from '../utils';
+import { calculate1RM, triggerHaptic, calculatePlates } from '../utils';
 import { Icons } from '../components/Icons';
 import { PALETTE } from '../styles/tokens';
 
@@ -107,8 +107,6 @@ export const ConverterView: React.FC = () => {
     );
 };
 
-const PLATES_AVAILABLE = [20, 10, 5, 2.5, 1.25];
-
 // Map plates to PALETTE colors
 const PLATE_COLORS: Record<number, string> = {
     20: PALETTE.accents.blue.primary,
@@ -126,19 +124,7 @@ export const PlateCalcView: React.FC = () => {
     const plateResult = useMemo(() => {
         const target = parseFloat(targetWeight);
         const bar = parseFloat(barWeight);
-        if (isNaN(target) || isNaN(bar) || target < bar) return null;
-
-        let remainder = (target - bar) / 2;
-        const result: number[] = [];
-        
-        PLATES_AVAILABLE.forEach(p => {
-            while (remainder >= p) {
-                result.push(p);
-                remainder -= p;
-            }
-        });
-        
-        return result;
+        return calculatePlates(target, bar);
     }, [targetWeight, barWeight]);
 
     return (
@@ -163,11 +149,11 @@ export const PlateCalcView: React.FC = () => {
                 </div>
                 
                 <div className="bg-surface2/30 p-8 rounded-[2rem] min-h-[150px] flex flex-col items-center justify-center border border-border">
-                    {plateResult ? (
+                    {plateResult.length > 0 ? (
                         <div className="flex flex-col items-center gap-4">
                             <div className="text-xs uppercase text-secondary font-bold tracking-widest">Charger par Côté</div>
                             <div className="flex flex-wrap justify-center gap-2">
-                                {plateResult.length > 0 ? plateResult.map((p, i) => (
+                                {plateResult.map((p, i) => (
                                     <div 
                                         key={i} 
                                         className="w-14 h-14 rounded-full flex items-center justify-center font-black text-sm shadow-xl relative group border-4 border-white/10"
@@ -175,9 +161,9 @@ export const PlateCalcView: React.FC = () => {
                                     >
                                         {p}
                                     </div>
-                                )) : <span className="text-secondary italic text-sm">Barre vide</span>}
+                                ))}
                             </div>
-                            {plateResult.length > 0 && <div className="text-[10px] text-secondary mt-2 bg-surface2 px-3 py-1 rounded-full">Total chargé: {targetWeight} kg</div>}
+                            <div className="text-[10px] text-secondary mt-2 bg-surface2 px-3 py-1 rounded-full">Total chargé: {targetWeight} kg</div>
                         </div>
                     ) : (
                         <div className="text-secondary text-sm italic">Entrez un poids cible valide.</div>
