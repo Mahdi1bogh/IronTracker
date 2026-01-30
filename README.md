@@ -1,65 +1,91 @@
 
 # IronTracker
 
-**Version :** 3.0.0 (Gold)
-**Type :** Progressive Web App (PWA) / Local-First
+![Version](https://img.shields.io/badge/version-3.2.3-blue.svg?style=flat-square) 
+![React](https://img.shields.io/badge/React-18-61dafb.svg?style=flat-square) 
+![Status](https://img.shields.io/badge/Status-Production-success.svg?style=flat-square)
 
-IronTracker est un carnet d'entraînement numérique conçu pour les pratiquants de musculation exigeants. L'application combine une esthétique minimaliste "Glassmorphism" avec une architecture de données rigoureuse, fonctionnant entièrement en local sur votre appareil.
+**Application Progressive Web App (PWA) dédiée au suivi de performance en force athlétique et musculation.**
+
+IronTracker est conçu pour remplacer le carnet papier et les tableurs complexes. L'application privilégie la rapidité d'exécution en salle, l'autonomie des données (Local-First) et une interface utilisateur minimaliste optimisée pour les environnements sombres.
 
 ## Fonctionnalités
 
-### Gestion de l'entraînement
-*   **Suivi Multi-Modal** : Support natif pour la Musculation (Poids/Reps), le Calisthenics, le Cardio (Distance/Temps) et l'Isométrie.
-*   **Bibliothèque Intelligente** :
-    *   Plus de 80 exercices pré-configurés avec conseils techniques (Setup, Exécution, Erreurs).
-    *   **Smart Filters** : Filtrage cyclique rapide par Type (Poly, Isol, Cardio...) et Équipement (Barre, Haltère, Poulie...).
-    *   Recherche textuelle instantanée.
-*   **Workflow "Zero-Friction"** :
-    *   *Mode Actif* : Chronomètre de repos automatique (Overlay), calcul de 1RM en temps réel et indicateurs de tendance.
-    *   *Mode Log* : Saisie rapide a posteriori pour maintenir l'historique à jour.
+### Suivi d'Entraînement
+*   **Mode Session Active :** Interface optimisée pour la saisie rapide des séries, répétitions, charges et RPE (Rate of Perceived Exertion).
+*   **Chronomètre de Repos Intelligent :** Système d'overlay global permettant de naviguer dans l'application tout en gardant un œil sur le temps de repos.
+*   **Calculateur de Plaques :** Outil intégré pour calculer instantanément la répartition des disques sur la barre.
+*   **Échauffement Automatique :** Génération intelligente de séries de montée en gamme (Warm-up) basées sur la charge de travail historique.
+*   **Feedback Immédiat :** Comparaison en temps réel avec les performances de la séance précédente (Volume, 1RM estimé) via des indicateurs de tendance.
 
-### Analyse & Performance
-*   **Tableau de Bord Bento** : Vue synthétique du volume hebdomadaire, de la fréquence et des records sans aucun clic.
-*   **Standards SBD** : Analyse de la force relative (Ratio Poids de Corps) sur le Squat, Bench et Deadlift avec projection sur les standards de force (Novice à Élite).
-*   **Micro & Macro Data** :
-    *   Graphiques de volume par groupe musculaire ou type de mouvement.
-    *   Suivi de la fatigue (RPE) vs Volume.
-    *   Courbes de progression 1RM estimé.
+### Gestion des Programmes
+*   **Éditeur de Programmes :** Création et modification complète de routines d'entraînement (Split, Full Body, PPL).
+*   **Système de Session :** Organisation des exercices, définition des temps de repos cibles et des objectifs de RIR (Reps in Reserve).
+*   **Duplication :** Fonctionnalité de clonage pour créer rapidement des variantes de programmes existants.
+*   **Prévisualisation :** Consultation du contenu d'une séance avant son lancement.
 
-### Données & Souveraineté
-*   **Local-First** : Aucune donnée n'est envoyée dans le cloud. Tout réside dans votre navigateur.
-*   **Exports Complets** :
-    *   **JSON** : Sauvegarde complète de l'état de l'application (Historique, Bibliothèque, Programmes).
-    *   **CSV (Excel)** : Export granulaire incluant Objectifs vs Réalisé, Temps de repos théoriques et métriques de validation pour analyse externe.
+### Bibliothèque d'Exercices
+*   **Base de Données Complète :** Plus de 80 exercices pré-configurés incluant des instructions techniques (Setup, Exécution, Erreurs à éviter).
+*   **Catégorisation Avancée :** Filtrage par groupe musculaire, type d'exercice (Polyarticulaire, Isolation, Cardio, Statique) et équipement.
+*   **Personnalisation :** Possibilité d'ajouter, de modifier, de mettre en favori et d'archiver des exercices personnalisés.
 
-### Outils Intégrés
-*   **Calculateur 1RM** : Formule de *Wathen* pour une estimation précise.
-*   **Plate Loader** : Assistant visuel pour le chargement des barres.
-*   **Convertisseur** : Équivalence de charge Barre ↔ Haltères (-20% stabilité).
+### Analyse et Performance
+*   **Tableau de Bord (Dashboard) :** Vue d'ensemble de l'activité hebdomadaire avec graphiques de volume et suggestions intelligentes de séance (Smart Start).
+*   **Standards de Force (SBD) :** Radar de performance comparant les max estimés (Squat, Bench, Deadlift) aux standards de force internationaux relatifs au poids de corps.
+*   **Graphiques de Progression :** Visualisation de l'évolution du 1RM estimé, du volume et du tonnage sur différentes périodes (7, 30, 90 jours).
+*   **Analyse de Répartition :** Diagrammes circulaires et histogrammes pour analyser l'équilibre musculaire et l'utilisation du matériel.
 
-## Terminologie
+### Historique et Données
+*   **History Hub :** Centralisation des journaux d'entraînement avec une vue calendrier interactive et des indicateurs visuels de fatigue.
+*   **Notes de Séance :** Système d'annotation contextuelle pour le suivi qualitatif.
+*   **Souveraineté des Données :** Export complet des données au format JSON (Backup) et CSV (compatible Excel/Tableurs).
 
-*   🔴 **Polyarticulaire** : Mouvements composés (Squat, Dips, Tractions...).
-*   🔵 **Isolation** : Mouvements mono-articulaires de finition.
-*   🟣 **Statique** : Effort isométrique (Planche, Front Lever...).
-*   🟢 **Cardio** : Endurance et HIIT.
-*   ⚪ **Étirement** : Mobilité et souplesse.
-
-## Installation (PWA)
-
-IronTracker s'installe comme une application native sans passer par les stores :
-
-**iOS (Safari) :**
-1.  Bouton "Partager" (carré avec flèche).
-2.  "Sur l'écran d'accueil".
-
-**Android (Chrome) :**
-1.  Menu (3 points).
-2.  "Installer l'application".
+### Architecture Technique
+*   **Offline-First :** Fonctionnalité complète sans connexion internet grâce au Service Worker.
+*   **Performance :** Utilisation de la virtualisation pour l'affichage fluide des longues listes (Historique, Bibliothèque).
+*   **Stockage Optimisé :** Compression des données via LZ-String pour maximiser l'espace de stockage local.
+*   **Haptique :** Retours sensoriels (vibrations) lors des interactions clés et de la fin des minuteries.
 
 ## Stack Technique
 
-*   **Core** : React 18, TypeScript, Vite.
-*   **State Management** : Zustand (Persistance LocalStorage optimisée).
-*   **UI/UX** : TailwindCSS (Design System Custom "Aesthetix"), Recharts.
-*   **Architecture** : Code Splitting, Lazy Loading, Service Workers (Offline support).
+L'architecture technique privilégie la performance instantanée et la robustesse.
+
+*   **Framework :** React 18 + Vite
+*   **Langage :** TypeScript
+*   **Gestion d'État :** Zustand
+*   **Styling :** TailwindCSS
+*   **Visualisation :** Recharts
+*   **Persistance :** LocalStorage + LZ-String
+
+## Architecture du Projet
+
+Le code suit une architecture modulaire par fonctionnalités ("Feature-Based") :
+
+*   `core/` : Logique métier agnostique, types, constantes et utilitaires purs.
+*   `features/` : Modules autonomes (Dashboard, Workout, Analytics, History...) contenant leurs propres composants et hooks.
+*   `components/` : Bibliothèque de composants UI réutilisables.
+*   `services/` : Couches d'abstraction pour le stockage et l'indexation.
+
+## Installation
+
+Pour exécuter le projet localement :
+
+1.  Cloner le dépôt :
+    ```bash
+    git clone https://github.com/votre-username/irontracker.git
+    ```
+
+2.  Installer les dépendances :
+    ```bash
+    npm install
+    ```
+
+3.  Lancer le serveur de développement :
+    ```bash
+    npm run dev
+    ```
+
+4.  Construire pour la production :
+    ```bash
+    npm run build
+    ```
