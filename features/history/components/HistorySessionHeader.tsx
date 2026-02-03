@@ -20,6 +20,12 @@ export const HistorySessionHeader: React.FC<HistorySessionHeaderProps> = ({
         if (['-', 'e', 'E'].includes(e.key)) e.preventDefault();
     };
 
+    // Helper pour format HH:mm strict pour input type="time"
+    const getTimeString = (ts: number) => {
+        const d = new Date(ts);
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+
     return (
         <SectionCard className="p-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -41,7 +47,7 @@ export const HistorySessionHeader: React.FC<HistorySessionHeaderProps> = ({
                     <label className="text-[9px] uppercase text-secondary">Heure</label>
                     <input 
                         type="time" 
-                        value={new Date(session.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                        value={getTimeString(session.startTime)} 
                         onChange={e => {
                             const [h, m] = e.target.value.split(':').map(Number);
                             const d = new Date(session.startTime);

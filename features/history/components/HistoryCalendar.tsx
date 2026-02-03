@@ -6,8 +6,9 @@ import { Modal } from '../../../components/ui/Modal';
 import { Icons } from '../../../components/icons/Icons';
 import { triggerHaptic } from '../../../core/utils';
 import { FATIGUE_COLORS, MUSCLE_COLORS, TYPE_COLORS } from '../../../core/constants';
-import { ProgramSession } from '../../../core/types';
+import { ProgramSession, WorkoutSession } from '../../../core/types';
 import { PALETTE } from '../../../styles/tokens';
+import { SessionDetailModal } from './SessionDetailModal';
 
 interface HistoryCalendarProps {
     onStartSession: (progName: string, sess: ProgramSession, mode: 'active' | 'log') => void;
@@ -21,6 +22,7 @@ export const HistoryCalendar: React.FC<HistoryCalendarProps> = ({ onStartSession
 
     const [calDate, setCalDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [viewingSession, setViewingSession] = useState<WorkoutSession | null>(null);
     const [calendarMode, setCalendarMode] = useState<'muscle' | 'type'>('muscle');
     const [showHistoryProgramPicker, setShowHistoryProgramPicker] = useState(false);
     const [showLegend, setShowLegend] = useState(false);
@@ -146,7 +148,7 @@ export const HistoryCalendar: React.FC<HistoryCalendarProps> = ({ onStartSession
             </div>
 
             {/* DETAIL MODAL (Overlay) */}
-            {selectedDate && (
+            {selectedDate && !viewingSession && (
                 <Modal 
                     title={showHistoryProgramPicker ? "Ajouter une séance" : selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })} 
                     onClose={() => { setSelectedDate(null); setShowHistoryProgramPicker(false); }}
@@ -163,13 +165,35 @@ export const HistoryCalendar: React.FC<HistoryCalendarProps> = ({ onStartSession
                                 }).filter(Boolean))).slice(0, 3).join(' • ');
                                 
                                 return (
-                                  <div key={s.id} onClick={() => { setSelectedDate(null); navigate(`/history/edit/${s.id}`); }} className="bg-surface2/30 p-4 rounded-2xl border border-white/5 hover:border-white/20 cursor-pointer flex justify-between items-center group transition-colors active:scale-98">
+                                  <div 
+                                    key={s.id} 
+                                    onClick={() => { 
+                                        triggerHaptic('click'); 
+                                        setViewingSession(s); 
+                                    }} 
+                                    className="bg-surface2/30 p-4 rounded-2xl border border-white/5 hover:border-white/20 cursor-pointer flex justify-between items-center group transition-colors active:scale-98"
+                                  >
                                           <div>
                                               <div className="font-bold text-white">{s.sessionName}</div>
                                               <div className="text-[10px] text-secondary uppercase">{s.programName}</div>
                                               <div className="text-[10px] text-primary/70 font-medium mt-0.5">{muscles}</div>
                                           </div>
-                                          <Icons.Settings size={16} className="text-secondary group-hover:text-white" />
+                                          <div className="flex items-center gap-2">
+                                              <button 
+                                                  onClick={(e) => {
+                                                      e.stopPropagation(); // Prevent opening the detail view
+                                                      triggerHaptic('click');
+                                                      // Close current modal logic
+                                                      setSelectedDate(null);
+                                                      // Nav logic
+                                                      setTimeout(() => navigate(`/history/edit/${s.id}`), 100);
+                                                  }}
+                                                  className="p-2 rounded-full hover:bg-white/10 text-secondary hover:text-white transition-colors"
+                                              >
+                                                  <Icons.Edit size={16} />
+                                              </button>
+                                              <Icons.Search size={16} className="text-secondary group-hover:text-white" />
+                                          </div>
                                   </div>
                                 );
                             })}
@@ -214,6 +238,23 @@ export const HistoryCalendar: React.FC<HistoryCalendarProps> = ({ onStartSession
                         </div>
                     )}
                 </Modal>
+            )}
+
+            {/* RECEIPT VIEW MODAL */}
+            {viewingSession && (
+                <SessionDetailModal 
+                    session={viewingSession} 
+                    onClose={() => setViewingSession(null)}
+                    onEdit={() => {
+                        // Close Modals
+                        setViewingSession(null);
+                        setSelectedDate(null);
+                        // TimeBuffer Pattern for Mobile Nav
+                        setTimeout(() => {
+                            navigate(`/history/edit/${viewingSession.id}`);
+                        }, 100);
+                    }}
+                />
             )}
 
             {/* LEGEND MODAL */}

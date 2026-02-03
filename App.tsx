@@ -90,7 +90,8 @@ export default function App() {
   // Actions
   const startSession = (progName: string, sess: ProgramSession, mode: 'active' | 'log' = 'active') => {
       triggerHaptic('success');
-      setSession({
+      
+      const newSessionPayload = {
         id: Date.now(),
         programName: progName,
         sessionName: sess.name,
@@ -107,9 +108,21 @@ export default function App() {
             notes: "",
             sets: Array(e.sets).fill(null).map(() => ({ weight: "", reps: "", done: (sess as any).startTime ? true : false, rir: e.targetRir || "" }))
         }))
-      });
-      navigate('/workout');
-      setPreviewSession(null);
+      };
+
+      setSession(newSessionPayload);
+
+      // Stability Fix: TimeBuffer for Mobile Navigation
+      // If we are in a modal (preview), close it first, let history settle, then navigate.
+      if (previewSession) {
+          setPreviewSession(null);
+          setTimeout(() => {
+              navigate('/workout');
+          }, 100);
+      } else {
+          // Direct start (Smart Widget), no modal to close
+          navigate('/workout');
+      }
   };
 
   const isWorkoutView = location.pathname === '/workout';

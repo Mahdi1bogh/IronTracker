@@ -209,7 +209,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                                     <Icons.Check size={14} strokeWidth={3} />
                                     {set.completedAt && (
                                         <span className="text-[7px] font-mono font-bold leading-none mt-0.5 opacity-90">
-                                            {new Date(set.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            {new Date(set.completedAt).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit', hour12: false})}
                                         </span>
                                     )}
                                 </>

@@ -55,6 +55,12 @@ export const WorkoutView: React.FC = () => {
         }
     };
 
+    // Helper pour format HH:mm strict
+    const getTimeString = (ts: number) => {
+        const d = new Date(ts);
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+
     return (
       <div className="space-y-6 pb-24 animate-zoom-in">
         {/* Header Section */}
@@ -133,7 +139,7 @@ export const WorkoutView: React.FC = () => {
                                  d.setHours(old.getHours(), old.getMinutes());
                                  updateSessionSettings(d.getTime(), session.bodyWeight, session.fatigue);
                              }} className="flex-1 bg-surface2 p-3 rounded-xl text-sm font-bold outline-none" />
-                             <input type="time" value={new Date(session.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} onChange={e => {
+                             <input type="time" value={getTimeString(session.startTime)} onChange={e => {
                                  const [h, m] = e.target.value.split(':').map(Number);
                                  const d = new Date(session.startTime);
                                  d.setHours(h, m);
