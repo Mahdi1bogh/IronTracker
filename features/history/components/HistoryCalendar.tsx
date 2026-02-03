@@ -169,7 +169,12 @@ export const HistoryCalendar: React.FC<HistoryCalendarProps> = ({ onStartSession
                                     key={s.id} 
                                     onClick={() => { 
                                         triggerHaptic('click'); 
-                                        setViewingSession(s); 
+                                        // MOBILE FIX: Close current modal first to ensure History API cleanup
+                                        setSelectedDate(null);
+                                        // Wait a buffer before opening new modal to prevent race conditions
+                                        setTimeout(() => {
+                                            setViewingSession(s);
+                                        }, 100);
                                     }} 
                                     className="bg-surface2/30 p-4 rounded-2xl border border-white/5 hover:border-white/20 cursor-pointer flex justify-between items-center group transition-colors active:scale-98"
                                   >
