@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { LibraryExercise, ExerciseType } from '../../core/types';
@@ -165,7 +164,7 @@ export const LibraryView: React.FC = () => {
 
           {/* VIRTUALIZED LIST CONTAINER */}
           <div className="flex-1 min-h-0 border-t border-transparent">
-              <VirtualList 
+              <VirtualList<LibraryExercise> 
                   items={filteredLibrary}
                   itemHeight={72}
                   gap={8}
@@ -210,8 +209,15 @@ export const LibraryView: React.FC = () => {
                   onClose={() => setSelectedDetailId(null)}
                   onEdit={() => {
                       const exo = library.find(l => l.id === selectedDetailId);
-                      if (exo) setEditingExercise(exo);
-                      setSelectedDetailId(null);
+                      if (exo) {
+                          // MOBILE FIX: Race condition on History API
+                          // Close first modal
+                          setSelectedDetailId(null);
+                          // Wait for unmount/history.back() to settle before opening new modal
+                          setTimeout(() => {
+                              setEditingExercise(exo);
+                          }, 100);
+                      }
                   }}
               />
           )}

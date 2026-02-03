@@ -171,7 +171,13 @@ export const useWorkoutManager = () => {
              message: "Voulez-vous vraiment annuler ?",
              subMessage: "Tout progrès non sauvegardé sera perdu.",
              variant: 'danger',
-             onConfirm: () => { setSession(null); setRestTarget(null); navigate('/'); storage.session.save(null); }
+             onConfirm: () => { 
+                 setSession(null); 
+                 setRestTarget(null); 
+                 storage.session.save(null);
+                 // TimeBuffer for modal close cleanup
+                 setTimeout(() => navigate('/'), 100); 
+             }
          });
     };
 
@@ -193,8 +199,10 @@ export const useWorkoutManager = () => {
         setHistory(prev => [finishedSession, ...prev].sort((a,b) => b.startTime - a.startTime));
         setSession(null);
         setRestTarget(null);
-        navigate('/');
         storage.session.save(null);
+        
+        // TimeBuffer: Wait for "Bilan" Modal to unmount via history.back() if applicable, then navigate
+        setTimeout(() => navigate('/'), 100);
     };
 
     const updateSessionSettings = (newDate: number, newBW?: string, newFatigue?: string) => {

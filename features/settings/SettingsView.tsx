@@ -139,7 +139,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       variant: 'danger',
                       onConfirm: () => {
                           resetData();
-                          navigate('/');
+                          // TimeBuffer pour laisser le temps à la modale de confirmation de se fermer
+                          setTimeout(() => navigate('/'), 100);
                           triggerHaptic('success');
                       }
                   });
@@ -147,7 +148,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   Zone de Danger : Reset
               </button>
               <div className="text-center mt-4 text-[10px] text-secondary font-mono">
-                  v3.2.0 (Platinum) • IronTracker
+                  v3.2.4 (Platinum) • IronTracker
               </div>
           </div>
       </div>
