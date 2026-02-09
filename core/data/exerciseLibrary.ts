@@ -217,12 +217,12 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "tips": { "setup": ["Debout", "Bras tendus"], "exec": ["Hausser les épaules vers les oreilles", "Contrôler la descente"], "mistake": ["Rouler les épaules", "Plier les bras"] }
     },
 
-    // JAMBES
+    // JAMBES (Segmenté)
     {
       "id": 33,
       "name": "Barbell Squat",
       "type": "Polyarticulaire",
-      "muscle": "Jambes",
+      "muscle": "Quadriceps",
       "equipment": "BB",
       "tips": { "setup": ["Barre sur trapèzes", "Pieds largeur épaules", "Regard droit"], "exec": ["Hanches en arrière et bas", "Genoux vers l'extérieur", "Briser la parallèle"], "mistake": ["Genoux qui rentrent (valgus)", "Talons qui décollent", "Dos qui s'arrondit"] }
     },
@@ -230,7 +230,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 34,
       "name": "Front Squat",
       "type": "Polyarticulaire",
-      "muscle": "Jambes",
+      "muscle": "Quadriceps",
       "equipment": "BB",
       "tips": { "setup": ["Barre sur les deltoïdes avant", "Coudes hauts"], "exec": ["Descendre verticalement", "Genoux vers l'avant"], "mistake": ["Coudes qui chutent", "Dos qui s'arrondit"] }
     },
@@ -238,7 +238,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 35,
       "name": "Hack Squat",
       "type": "Polyarticulaire",
-      "muscle": "Jambes",
+      "muscle": "Quadriceps",
       "equipment": "EM",
       "tips": { "setup": ["Dos plaqué au dossier"], "exec": ["Descendre profond"], "mistake": ["Décoller les talons"] }
     },
@@ -246,7 +246,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 36,
       "name": "Leg Press",
       "type": "Polyarticulaire",
-      "muscle": "Jambes",
+      "muscle": "Quadriceps",
       "equipment": "EM",
       "tips": { "setup": ["Dos plaqué au siège", "Pieds largeur bassin"], "exec": ["Descendre genoux vers épaules", "Pousser sans verrouiller"], "mistake": ["Décoller les fesses du siège", "Verrouiller les genoux (Danger!)"] }
     },
@@ -254,7 +254,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 37,
       "name": "Dumbbell Bulgarian Split Squat",
       "type": "Polyarticulaire",
-      "muscle": "Jambes",
+      "muscle": "Quadriceps",
       "equipment": "DB",
       "tips": { "setup": ["Un pied sur banc arrière", "Équilibre stable"], "exec": ["Descendre genou arrière vers le sol", "Buste légèrement penché"], "mistake": ["Pied avant trop proche (talon décolle)", "Genou rentrant"] }
     },
@@ -262,7 +262,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 38,
       "name": "Dumbbell Lunge",
       "type": "Polyarticulaire",
-      "muscle": "Jambes",
+      "muscle": "Fessiers",
       "equipment": "DB",
       "tips": { "setup": ["Pieds largeur bassin", "Haltères le long du corps"], "exec": ["Pas vers l'avant", "Genou arrière frôle le sol"], "mistake": ["Genou avant dépasse trop", "Perte d'équilibre"] }
     },
@@ -270,7 +270,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 39,
       "name": "Pistol Squat",
       "type": "Polyarticulaire",
-      "muscle": "Jambes",
+      "muscle": "Quadriceps",
       "equipment": "BW",
       "tips": { "setup": ["Unilatéral", "Jambe libre tendue devant"], "exec": ["Descendre fesse sur talon", "Garder le talon au sol"], "mistake": ["Genou qui rentre", "Décoller le talon"] }
     },
@@ -278,7 +278,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 40,
       "name": "Romanian Deadlift",
       "type": "Polyarticulaire",
-      "muscle": "Jambes",
+      "muscle": "Ischios",
       "equipment": "BB",
       "tips": { "setup": ["Pieds largeur hanches", "Omoplates serrées"], "exec": ["Pousser les fesses en arrière", "Jambes semi-tendues", "Descendre tant que le dos est plat"], "mistake": ["Arrondir le dos", "Transformer en Squat", "Barre trop loin des jambes"] }
     },
@@ -286,7 +286,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 41,
       "name": "Leg Extension",
       "type": "Isolation",
-      "muscle": "Jambes",
+      "muscle": "Quadriceps",
       "equipment": "EM",
       "tips": { "setup": ["Genou aligné avec l'axe machine", "Dos calé"], "exec": ["Tendre les jambes", "Contrôler la descente"], "mistake": ["Lancer la charge", "Décoller les fesses"] }
     },
@@ -294,7 +294,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 42,
       "name": "Lying Leg Curl",
       "type": "Isolation",
-      "muscle": "Jambes",
+      "muscle": "Ischios",
       "equipment": "EM",
       "tips": { "setup": ["Genoux hors du banc", "Hanches plaquées"], "exec": ["Ramener talons aux fesses", "Contrôler le retour"], "mistake": ["Décoller les hanches (cambrer)", "Mouvement partiel"] }
     },
@@ -302,7 +302,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 43,
       "name": "Seated Leg Curl",
       "type": "Isolation",
-      "muscle": "Jambes",
+      "muscle": "Ischios",
       "equipment": "EM",
       "tips": { "setup": ["Genoux alignés axe", "Bloqueur sur cuisses"], "exec": ["Fléchir vers le bas", "Retenir la montée"], "mistake": ["Décoller le dos", "Mouvement trop rapide"] }
     },
@@ -310,7 +310,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
       "id": 44,
       "name": "Hip Thrust",
       "type": "Isolation",
-      "muscle": "Jambes",
+      "muscle": "Fessiers",
       "equipment": "BB",
       "tips": { "setup": ["Omoplates sur banc", "Barre sur le creux des hanches"], "exec": ["Monter le bassin", "Contracter fort les fessiers"], "mistake": ["Cambrer le dos", "Pousser avec les pointes de pieds"] }
     },
@@ -624,7 +624,7 @@ export const DEFAULT_LIBRARY: LibraryExercise[] = [
         "id": 76,
         "name": "Nordic Curl",
         "type": "Isolation",
-        "muscle": "Jambes",
+        "muscle": "Ischios",
         "equipment": "BW",
         "tips": { "setup": ["Talons bloqués", "Corps droit"], "exec": ["Descendre lentement (excentrique)", "Freiner la chute"], "mistake": ["Plier les hanches", "Acoups"] }
     },

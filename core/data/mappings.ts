@@ -19,7 +19,10 @@ export const REVERSE_TYPE_MAP: Record<string, ExerciseType> = Object.entries(TYP
 export const MUSCLE_MAP: Record<string, string> = {
   'Pectoraux': 'PE',
   'Dos': 'DO',
-  'Jambes': 'JA',
+  'Jambes': 'JA', // Legacy
+  'Quadriceps': 'QU',
+  'Ischios': 'HA',
+  'Fessiers': 'GL',
   'Épaules': 'EP',
   'Bras': 'BR',
   'Abdos': 'AB',

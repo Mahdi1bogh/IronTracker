@@ -26,7 +26,10 @@ export const TYPE_COLORS: Record<ExerciseType, string> = {
 export const MUSCLE_COLORS: Record<string, string> = {
   'Pectoraux': PALETTE.muscle.pecs,
   'Dos': PALETTE.muscle.back,
-  'Jambes': PALETTE.muscle.legs,
+  'Quadriceps': PALETTE.muscle.quads,
+  'Ischios': PALETTE.muscle.hamstrings,
+  'Fessiers': PALETTE.muscle.glutes,
+  'Jambes': PALETTE.muscle.legs, // Legacy Fallback
   'Épaules': PALETTE.muscle.shoulders,
   'Bras': PALETTE.muscle.arms,
   'Abdos': PALETTE.muscle.abs,
@@ -37,7 +40,7 @@ export const MUSCLE_COLORS: Record<string, string> = {
 };
 
 export const MUSCLE_GROUPS = {
-    PRIMARY: ['Pectoraux', 'Dos', 'Quadriceps', 'Ischios', 'Jambes'],
+    PRIMARY: ['Pectoraux', 'Dos', 'Quadriceps', 'Ischios', 'Fessiers', 'Jambes'],
     SECONDARY: ['Biceps', 'Triceps', 'Bras', 'Épaules', 'Mollets', 'Abdos', 'Avant-bras', 'Cou']
 };
 

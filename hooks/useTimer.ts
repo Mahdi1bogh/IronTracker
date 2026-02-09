@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { triggerHaptic } from '../core/utils';
@@ -11,6 +10,13 @@ export const useTimer = () => {
     const [elapsed, setElapsed] = useState(0);
     const [restTime, setRestTime] = useState<number | null>(null);
     const [showGo, setShowGo] = useState(false);
+
+    // Request Notification Permission on mount if not granted
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
 
     // Workout Duration Timer
     useEffect(() => {
@@ -43,6 +49,20 @@ export const useTimer = () => {
                     setRestTime(0);
                     setShowGo(true);
                     triggerHaptic('warning');
+                    
+                    // Trigger System Notification
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        try {
+                            new Notification('Repos Terminé !', {
+                                body: 'Il est temps de repartir.',
+                                icon: '/icon.svg',
+                                vibrate: [200, 100, 200]
+                            } as any);
+                        } catch (e) {
+                            console.debug('Notification error', e);
+                        }
+                    }
+
                     // Auto-hide "GO" after 4s
                     setTimeout(() => {
                         setShowGo(false);

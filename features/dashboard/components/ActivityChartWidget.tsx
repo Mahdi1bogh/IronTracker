@@ -21,7 +21,7 @@ export const ActivityChartWidget: React.FC<ActivityChartWidgetProps> = ({ data, 
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-gradient-to-br from-primary to-primary/50 rounded-2xl text-white shadow-lg shadow-primary/20">
-                            <Icons.Flame size={20} fill="currentColor" />
+                            <Icons.Fitness size={20} />
                         </div>
                         <div>
                              <div className="text-[10px] font-bold text-secondary uppercase tracking-widest">Activité Hebdo</div>

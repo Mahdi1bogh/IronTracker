@@ -5,8 +5,12 @@ import { calculate1RM, parseDuration } from '../../../core/utils';
 import { MUSCLE_GROUPS } from '../../../core/constants';
 import { ExerciseType } from '../../../core/types';
 
-// Constants locales au hook
-const MUSCLE_ORDER = ['Pectoraux', 'Dos', 'Épaules', 'Bras', 'Abdos', 'Jambes'];
+// Constants locales au hook (Ordre d'affichage des graphiques)
+const MUSCLE_ORDER = [
+    'Pectoraux', 'Dos', 
+    'Quadriceps', 'Ischios', 'Fessiers', 'Jambes', // New + Legacy
+    'Épaules', 'Bras', 'Abdos'
+];
 const TYPE_ORDER = ['Polyarticulaire', 'Isolation', 'Cardio', 'Statique'];
 const SBD_STANDARDS = { S: 2.2, B: 1.7, D: 2.8 };
 
@@ -23,8 +27,8 @@ export const useAnalyticsData = () => {
     const history = useStore(s => s.history);
     const library = useStore(s => s.library);
 
-    // State
-    const [period, setPeriod] = useState<'7d'|'30d'|'90d'>('30d');
+    // State - Default period set to 7d
+    const [period, setPeriod] = useState<'7d'|'30d'|'90d'>('7d');
     const [selectedDetailExo, setSelectedDetailExo] = useState<number>(33); 
     const [detailMetric, setDetailMetric] = useState<'1rm' | 'max' | 'volume' | 'tonnage'>('1rm');
     const [volumeMode, setVolumeMode] = useState<'muscle' | 'type'>('muscle');
@@ -57,7 +61,7 @@ export const useAnalyticsData = () => {
             return acc + s.exercises.reduce((ac, e) => {
                 const lib = library.find(l => l.id === e.exerciseId);
                 if (lib && (lib.type === 'Cardio' || lib.type === 'Statique' || lib.type === 'Étirement')) return ac;
-                return ac + e.sets.filter(st => st.done && !st.isWarmup).reduce((a, st) => a + (parseFloat(st.weight)||0) * (parseFloat(st.reps)||0), 0);
+                return acc + e.sets.filter(st => st.done && !st.isWarmup).reduce((a, st) => a + (parseFloat(st.weight)||0) * (parseFloat(st.reps)||0), 0);
             }, 0);
         }, 0);
         return { totalSessions, totalSets, totalTonnage: Math.round(totalTonnage / 1000) };
@@ -81,6 +85,10 @@ export const useAnalyticsData = () => {
                 const lib = library.find(l => l.id === e.exerciseId);
                 if (lib) {
                     const key = volumeMode === 'muscle' ? lib.muscle : lib.type;
+                    // Support new muscles even if not in default MUSCLE_ORDER
+                    if (counts[key] === undefined && volumeMode === 'muscle') {
+                        counts[key] = 0;
+                    }
                     if (counts[key] !== undefined) {
                         counts[key] += e.sets.filter(st => st.done && !st.isWarmup).length;
                     }
@@ -89,10 +97,28 @@ export const useAnalyticsData = () => {
         });
 
         const weeks = period === '7d' ? 1 : period === '30d' ? 4 : 12;
-        const labels = volumeMode === 'muscle' ? MUSCLE_ORDER : TYPE_ORDER;
         
-        return labels.map(label => ({
-            name: volumeMode === 'muscle' ? label : label.substring(0,4).toUpperCase(),
+        // Dynamically include active keys for the chart
+        const activeKeys = Object.keys(counts).filter(k => {
+            const count = counts[k];
+            // SMART-FILTER: Hide 'Jambes' (Legacy) if 0, even if it is in MUSCLE_ORDER
+            if (k === 'Jambes' && count === 0) return false;
+            
+            return count > 0 || (volumeMode === 'muscle' ? MUSCLE_ORDER.includes(k) : TYPE_ORDER.includes(k));
+        });
+
+        // Sort based on predefined order if possible
+        activeKeys.sort((a,b) => {
+            const idxA = volumeMode === 'muscle' ? MUSCLE_ORDER.indexOf(a) : TYPE_ORDER.indexOf(a);
+            const idxB = volumeMode === 'muscle' ? MUSCLE_ORDER.indexOf(b) : TYPE_ORDER.indexOf(b);
+            // Put unlisted items at the end
+            if (idxA === -1) return 1;
+            if (idxB === -1) return -1;
+            return idxA - idxB;
+        });
+
+        return activeKeys.map(label => ({
+            name: volumeMode === 'muscle' ? label.substring(0,3).toUpperCase() : label.substring(0,4).toUpperCase(),
             realName: label,
             avgSets: Math.round((counts[label] / weeks) * 10) / 10
         }));
@@ -154,21 +180,43 @@ export const useAnalyticsData = () => {
     }, [relevantHistory, selectedDetailExo, detailMetric, isTimeBased, isCardio]);
 
     const sbdStats = useMemo(() => {
-        const squatIds = [33, 34, 35];
+        // Bench & Deadlift rely on known IDs or Types, but let's stick to IDs/Standard logic for now.
         const benchIds = [1, 2, 3, 4];
         const deadliftIds = [20, 40];
         
+        let maxSquatQuad = 0;
+        let maxSquatLegs = 0; // Legacy Fallback
         const maxes = { S: 0, B: 0, D: 0 };
         
         history.forEach(s => {
             s.exercises.forEach(e => {
-                let category: 'S'|'B'|'D'|null = null;
-                if (squatIds.includes(e.exerciseId)) category = 'S';
-                else if (benchIds.includes(e.exerciseId)) category = 'B';
+                const libEx = library.find(l => l.id === e.exerciseId);
+                if (!libEx) return;
+
+                // SQUAT LOGIC (Dynamic + Fallback)
+                if (libEx.type === 'Polyarticulaire') {
+                    e.sets.forEach(st => {
+                        if (st.done && !st.isWarmup) {
+                            const e1rm = calculate1RM(st.weight, st.reps);
+                            
+                            // Check for Quadriceps Compound (Priority)
+                            if (libEx.muscle === 'Quadriceps') {
+                                if (e1rm > maxSquatQuad) maxSquatQuad = e1rm;
+                            }
+                            // Check for Legacy Legs Compound (Fallback)
+                            else if (libEx.muscle === 'Jambes') {
+                                if (e1rm > maxSquatLegs) maxSquatLegs = e1rm;
+                            }
+                        }
+                    });
+                }
+
+                // BENCH & DEADLIFT LOGIC (ID Based for now, safer for these specific lifts)
+                let category: 'B'|'D'|null = null;
+                if (benchIds.includes(e.exerciseId)) category = 'B';
                 else if (deadliftIds.includes(e.exerciseId)) category = 'D';
 
                 if (category) {
-                    const libEx = library.find(l => l.id === e.exerciseId);
                     e.sets.forEach(st => {
                         if (st.done && !st.isWarmup) {
                             let w = parseFloat(st.weight) || 0;
@@ -183,6 +231,11 @@ export const useAnalyticsData = () => {
             });
         });
         
+        // APPLY SQUAT FALLBACK
+        // If we have data for specific Quadriceps compounds (Squat, Hack, etc.), use it.
+        // Otherwise, fallback to generic Leg press/Legs stuff if available.
+        maxes.S = maxSquatQuad > 0 ? maxSquatQuad : maxSquatLegs;
+
         let lastBW = 75; 
         if (history.length > 0 && history[0].bodyWeight) {
             const parsed = parseFloat(history[0].bodyWeight);

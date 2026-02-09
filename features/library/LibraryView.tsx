@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../store/useStore';
 import { LibraryExercise, ExerciseType } from '../../core/types';
@@ -12,9 +13,16 @@ import { ExerciseDetailModal } from './components/ExerciseDetailModal';
 import { VirtualList } from '../../components/ui/VirtualList';
 import { EmptyState } from '../../components/ui/EmptyState';
 
-const MUSCLE_ORDER = ['Pectoraux', 'Dos', 'Épaules', 'Bras', 'Avant-bras', 'Abdos', 'Jambes', 'Mollets', 'Cou', 'Cardio'];
+const MUSCLE_ORDER = [
+    'Pectoraux', 'Dos', 
+    'Quadriceps', 'Ischios', 'Fessiers', 'Jambes', // New + Legacy
+    'Épaules', 'Bras', 'Avant-bras', 
+    'Abdos', 'Mollets', 'Cou', 'Cardio'
+];
 
 // Configuration des cycles de filtres
+const MUSCLE_FILTERS = [null, ...MUSCLE_ORDER];
+
 const TYPE_FILTERS = [null, ...EXERCISE_TYPE_LIST];
 const TYPE_LABELS: Record<string, string> = {
     'Polyarticulaire': 'Poly.',
@@ -39,6 +47,7 @@ export const LibraryView: React.FC = () => {
     const [libraryFilter, setLibraryFilter] = useState('');
     const [typeFilterIdx, setTypeFilterIdx] = useState(0);
     const [equipFilterIdx, setEquipFilterIdx] = useState(0);
+    const [muscleFilterIdx, setMuscleFilterIdx] = useState(0);
     
     // States for Modals
     const [editingExercise, setEditingExercise] = useState<LibraryExercise | null>(null);
@@ -66,6 +75,7 @@ export const LibraryView: React.FC = () => {
     // --- Filter Logic ---
     const activeType = TYPE_FILTERS[typeFilterIdx];
     const activeEquip = EQUIP_FILTERS[equipFilterIdx];
+    const activeMuscle = MUSCLE_FILTERS[muscleFilterIdx];
 
     const cycleType = () => {
         triggerHaptic('click');
@@ -75,6 +85,11 @@ export const LibraryView: React.FC = () => {
     const cycleEquip = () => {
         triggerHaptic('click');
         setEquipFilterIdx(prev => (prev + 1) % EQUIP_FILTERS.length);
+    };
+
+    const cycleMuscle = () => {
+        triggerHaptic('click');
+        setMuscleFilterIdx(prev => (prev + 1) % MUSCLE_FILTERS.length);
     };
 
     // Reset rapide au clic long
@@ -102,9 +117,12 @@ export const LibraryView: React.FC = () => {
             // Equip Filter
             if (activeEquip && l.equipment !== activeEquip) return false;
 
+            // Muscle Filter
+            if (activeMuscle && l.muscle !== activeMuscle) return false;
+
             return true;
         }).sort((a,b) => (a.isFavorite === b.isFavorite) ? a.name.localeCompare(b.name) : (a.isFavorite ? -1 : 1));
-    }, [library, libraryFilter, activeType, activeEquip]);
+    }, [library, libraryFilter, activeType, activeEquip, activeMuscle]);
 
     return (
       <div className="space-y-4 animate-fade-in pb-24 h-full flex flex-col">
@@ -112,23 +130,32 @@ export const LibraryView: React.FC = () => {
               <h2 className="text-2xl font-black italic uppercase truncate">Bibliothèque</h2>
               
               {/* Filter Pills Group */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {/* Equip Filter */}
+              <div className="flex items-center gap-1.5 flex-shrink-0 overflow-x-auto no-scrollbar">
+                  {/* Muscle Filter */}
                   <button 
-                      onClick={cycleEquip}
-                      onContextMenu={resetFilter(setEquipFilterIdx)}
-                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent ${activeEquip ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
+                      onClick={cycleMuscle}
+                      onContextMenu={resetFilter(setMuscleFilterIdx)}
+                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent whitespace-nowrap ${activeMuscle ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
                   >
-                      {activeEquip ? activeEquip : 'Equip.'}
+                      {activeMuscle ? activeMuscle.substring(0, 4) : 'Musc.'}
                   </button>
 
                   {/* Type Filter */}
                   <button 
                       onClick={cycleType}
                       onContextMenu={resetFilter(setTypeFilterIdx)}
-                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent ${activeType ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
+                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent whitespace-nowrap ${activeType ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
                   >
                       {activeType && typeof activeType === 'string' ? TYPE_LABELS[activeType] : 'Type'}
+                  </button>
+
+                  {/* Equip Filter */}
+                  <button 
+                      onClick={cycleEquip}
+                      onContextMenu={resetFilter(setEquipFilterIdx)}
+                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent whitespace-nowrap ${activeEquip ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
+                  >
+                      {activeEquip ? activeEquip : 'Equip.'}
                   </button>
 
                   {/* Count Pill */}
@@ -172,7 +199,7 @@ export const LibraryView: React.FC = () => {
                       <EmptyState 
                           icon={<Icons.Dumbbell />} 
                           title="Aucun exercice" 
-                          subtitle={libraryFilter || activeType || activeEquip ? "Aucun résultat pour ces filtres." : "La bibliothèque est vide."} 
+                          subtitle={libraryFilter || activeType || activeEquip || activeMuscle ? "Aucun résultat pour ces filtres." : "La bibliothèque est vide."} 
                       />
                   }
                   renderItem={(l) => (

@@ -27,7 +27,10 @@ export const PALETTE = {
     muscle: {
         pecs: '#007AFF',      // Blue
         back: '#00e17a',      // Success Green
-        legs: '#ffd21f',      // Warning Yellow
+        legs: '#ffd21f',      // Warning Yellow (Legacy Global)
+        quads: '#EAB308',     // Yellow/Gold
+        hamstrings: '#F97316',// Orange Rust
+        glutes: '#EC4899',    // Pink/Magenta
         shoulders: '#8B5CF6', // Purple (Keep for distinction)
         arms: '#f04248',      // Danger Red
         abs: '#06B6D4',       // Cyan

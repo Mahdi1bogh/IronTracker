@@ -86,10 +86,18 @@ export interface ConfirmationOptions {
 
 // --- ANALYTICS INDEXING ---
 
+export interface InsightItem {
+    id: string;
+    title: string;
+    text: string;
+    level: 'info' | 'warning' | 'danger' | 'success';
+    priority: number; // 1 (High) to 10 (Low)
+}
+
 export interface DashboardStats {
   volumeData: { day: string; val: number }[];
   weeklySets: number;
-  insights: { title: string | null; text: string | null; };
+  insights: InsightItem[];
   monthSessionCount: number;
   hasNewPR: boolean;
   lastUpdated: number;

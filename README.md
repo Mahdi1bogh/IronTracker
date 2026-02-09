@@ -1,7 +1,7 @@
 
 # IronTracker
 
-![Version](https://img.shields.io/badge/version-3.2.9-blue.svg?style=flat-square) 
+![Version](https://img.shields.io/badge/version-3.4.0-blue.svg?style=flat-square) 
 ![React](https://img.shields.io/badge/React-18-61dafb.svg?style=flat-square) 
 ![Status](https://img.shields.io/badge/Status-Production-success.svg?style=flat-square)
 
@@ -17,6 +17,11 @@ IronTracker est conçu pour remplacer le carnet papier et les tableurs complexes
 *   **Calculateur de Plaques :** Outil intégré pour calculer instantanément la répartition des disques sur la barre.
 *   **Échauffement Automatique :** Génération intelligente de séries de montée en gamme (Warm-up) basées sur la charge de travail historique.
 *   **Feedback Immédiat :** Comparaison en temps réel avec les performances de la séance précédente (Volume, 1RM estimé) via des indicateurs de tendance.
+
+### Coach Virtuel & Insights
+*   **Carousel Intelligent :** Analyse en temps réel de votre semaine d'entraînement.
+*   **Détection de Déséquilibres :** Alerte sur les ratios Agonistes/Antagonistes (ex: Trop de Push, pas assez de Pull).
+*   **Surveillance de Volume :** Notification en cas de sous-dosage d'un groupe musculaire majeur (< 10 sets/semaine).
 
 ### Gestion des Programmes
 *   **Éditeur de Programmes :** Création et modification complète de routines d'entraînement (Split, Full Body, PPL).
@@ -37,14 +42,8 @@ IronTracker est conçu pour remplacer le carnet papier et les tableurs complexes
 
 ### Historique et Données
 *   **History Hub :** Centralisation des journaux d'entraînement avec une vue calendrier interactive et des indicateurs visuels de fatigue.
-*   **Notes de Séance :** Système d'annotation contextuelle pour le suivi qualitatif.
+*   **Ticket de Séance (Sharing) :** Génération d'une image récapitulative "Receipt style" pour partager ses perfs sur les réseaux sociaux.
 *   **Souveraineté des Données :** Export complet des données au format JSON (Backup) et CSV (compatible Excel/Tableurs).
-
-### Architecture Technique
-*   **Offline-First :** Fonctionnalité complète sans connexion internet grâce au Service Worker.
-*   **Performance :** Utilisation de la virtualisation pour l'affichage fluide des longues listes (Historique, Bibliothèque).
-*   **Stockage Optimisé :** Compression des données via LZ-String pour maximiser l'espace de stockage local.
-*   **Haptique :** Retours sensoriels (vibrations) lors des interactions clés et de la fin des minuteries.
 
 ## Stack Technique
 

@@ -1,5 +1,5 @@
 
-import { WorkoutSession, LibraryExercise, DashboardStats } from "../core/types";
+import { WorkoutSession, LibraryExercise, DashboardStats, InsightItem } from "../core/types";
 import { MUSCLE_GROUPS, STORAGE_KEYS } from "../core/constants";
 import { calculate1RM, parseDuration } from "../core/utils";
 
@@ -19,8 +19,8 @@ export const indexer = {
         const volumeData = days.map(d => ({ day: d, val: 0 }));
         let weeklySets = 0;
 
-        // 2. INSIGHTS DATA PREP
-        const cutoff = now - (28 * 24 * 3600 * 1000); // 28 days
+        // 2. INSIGHTS DATA PREP (7 Days Rolling Window)
+        const cutoff = now - (7 * 24 * 3600 * 1000); 
         const muscleCounts: Record<string, number> = {};
         
         // 3. MONTH STATS
@@ -50,7 +50,7 @@ export const indexer = {
                     weeklySets += setPayload;
                 }
 
-                // Insights (Last 28d)
+                // Insights (Last 7d)
                 if (s.startTime > cutoff) {
                     s.exercises.forEach(e => {
                         const lib = library.find(l => l.id === e.exerciseId);
@@ -121,33 +121,110 @@ export const indexer = {
             }
         }
 
-        // GENERATE INSIGHTS
-        let insights = { title: "Bienvenue", text: "Commencez votre premier entraînement !" };
-        if (history.length > 0) {
-            insights = { title: "Bon Rythme", text: "Volume d'entraînement équilibré." };
-            
-            const avgWeekly: Record<string, number> = {};
-            Object.keys(muscleCounts).forEach(m => {
-                avgWeekly[m] = Math.round((muscleCounts[m] / 4) * 10) / 10;
-            });
+        // GENERATE INSIGHTS LIST
+        let insightsList: InsightItem[] = [];
 
-            const getVol = (m: string) => avgWeekly[m] || 0;
+        if (history.length === 0) {
+            insightsList.push({ 
+                id: 'welcome', 
+                title: "Bienvenue", 
+                text: "Commencez votre premier entraînement !", 
+                level: 'info', 
+                priority: 1 
+            });
+        } else {
+            const getVol = (m: string) => muscleCounts[m] || 0;
             const pecs = getVol('Pectoraux');
             const dos = getVol('Dos');
+            const quads = getVol('Quadriceps');
+            const ischios = getVol('Ischios');
+            const fessiers = getVol('Fessiers');
+            const jambes = getVol('Jambes');
 
-            if (dos > 0 && pecs / dos > 1.5) insights = { title: "Déséquilibre", text: "Volume Pectoraux > Dos (Ratio > 1.5)." };
-            else if (pecs > 0 && dos / pecs > 1.5) insights = { title: "Déséquilibre", text: "Volume Dos > Pectoraux." };
-            else {
-                const muscles = Object.keys(avgWeekly);
-                const neglectedPrimary = muscles.find(m => MUSCLE_GROUPS.PRIMARY.includes(m) && avgWeekly[m] < 10);
-                if (neglectedPrimary) insights = { title: "Volume Faible", text: `${neglectedPrimary} est sous-dosé (< 10 sets/sem).` };
+            // --- EXCLUSION MUTUELLE LEGACY/MODERNE ---
+            // Si l'utilisateur log précis (Quads+Ischios+Fessiers > 0), on ignore l'alerte sur le groupe global "Jambes"
+            const hasPreciseLegsWork = (quads + ischios + fessiers) > 0;
+            
+            // Si l'utilisateur log global "Jambes" en quantité suffisante (>10), on ignore les alertes précises pour éviter les faux positifs
+            const hasLegacyLegsWork = jambes > 10;
+
+            // Check 1: Agonist/Antagonist Ratios
+            if (dos > 0 && pecs / dos > 1.5) {
+                insightsList.push({
+                    id: 'ratio_push_pull',
+                    title: "Déséquilibre",
+                    text: "Volume Pectoraux > Dos (Ratio > 1.5).",
+                    level: 'warning',
+                    priority: 2
+                });
+            }
+            if (pecs > 0 && dos / pecs > 1.5) {
+                insightsList.push({
+                    id: 'ratio_pull_push',
+                    title: "Déséquilibre",
+                    text: "Volume Dos > Pectoraux.",
+                    level: 'info',
+                    priority: 5
+                });
+            }
+            if (ischios > 0 && quads / ischios > 2) {
+                insightsList.push({
+                    id: 'ratio_legs',
+                    title: "Déséquilibre",
+                    text: "Volume Quads dominant vs Ischios.",
+                    level: 'warning',
+                    priority: 3
+                });
+            }
+
+            // Check 2: Low Volume on Primary Muscles (MEV < 10)
+            MUSCLE_GROUPS.PRIMARY.forEach(muscle => {
+                // LOGIQUE D'EXCLUSION
+                if (muscle === 'Jambes' && hasPreciseLegsWork) return; // Mode Précis détecté : On ignore Jambes
+                if (['Quadriceps', 'Ischios', 'Fessiers'].includes(muscle) && hasLegacyLegsWork) return; // Mode Global détecté : On ignore les détails
+
+                const vol = muscleCounts[muscle] || 0;
+                
+                if (vol === 0) {
+                    // Critical: Missing entirely from the week
+                    insightsList.push({
+                        id: `missing_${muscle}`,
+                        title: "Manque",
+                        text: `Aucun travail ${muscle} sur 7 jours.`,
+                        level: 'danger',
+                        priority: 1
+                    });
+                } else if (vol < 10) {
+                    // Warning: Underdosed
+                    insightsList.push({
+                        id: `low_${muscle}`,
+                        title: "Volume Faible",
+                        text: `${muscle} sous-dosé (< 10 sets/sem).`,
+                        level: 'warning',
+                        priority: 4
+                    });
+                }
+            });
+
+            // Default State
+            if (insightsList.length === 0) {
+                insightsList.push({
+                    id: 'good_pace',
+                    title: "Bon Rythme",
+                    text: "Volume d'entraînement équilibré.",
+                    level: 'success',
+                    priority: 10
+                });
             }
         }
+
+        // Sort by Priority (Low number = High Priority)
+        insightsList.sort((a, b) => a.priority - b.priority);
 
         return {
             volumeData,
             weeklySets,
-            insights,
+            insights: insightsList,
             monthSessionCount,
             hasNewPR,
             lastUpdated: now

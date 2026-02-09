@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { useStore } from '../../../store/useStore';
 import { getExerciseStats } from '../../../core/utils';
@@ -7,12 +6,21 @@ import { VirtualList } from '../../../components/ui/VirtualList';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Icons } from '../../../components/icons/Icons';
 
+interface NoteItem {
+    date: number;
+    session: string;
+    fatigue: string;
+    exercise: string;
+    note: string;
+    perf: string;
+}
+
 export const HistoryNotes: React.FC = () => {
     const history = useStore(s => s.history);
     const library = useStore(s => s.library);
 
     const allNotes = useMemo(() => {
-        const notesList: { date: number, session: string, fatigue: string, exercise: string, note: string, perf: string }[] = [];
+        const notesList: NoteItem[] = [];
         history.forEach(s => {
             s.exercises.forEach(e => {
                 if (e.notes) {
@@ -35,7 +43,7 @@ export const HistoryNotes: React.FC = () => {
 
     return (
         <div className="h-full -mx-1 animate-fade-in pb-20"> 
-            <VirtualList
+            <VirtualList<NoteItem>
                 items={allNotes}
                 itemHeight={140}
                 gap={12}
