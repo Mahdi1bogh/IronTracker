@@ -18,14 +18,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     return (
         <div className="flex flex-col items-center justify-center h-full w-full p-8 text-center animate-fade-in space-y-4">
             {icon && React.isValidElement(icon) && (
-                <div className="text-secondary/10 p-4 rounded-full bg-white/5 mb-2">
+                <div className="text-primary/20 p-4 rounded-full bg-primary/5 mb-2">
                     {/* Clone element to enforce size if needed, or rely on passed icon props */}
                     {React.cloneElement(icon as React.ReactElement<any>, { size: 48, strokeWidth: 1 })}
                 </div>
             )}
             <div className="space-y-1">
-                <div className="text-sm font-black uppercase tracking-widest text-secondary">{title}</div>
-                {subtitle && <div className="text-xs text-secondary/50 font-medium max-w-[200px] mx-auto leading-relaxed">{subtitle}</div>}
+                <div className="text-sm font-medium uppercase tracking-wider text-secondary">{title}</div>
+                {subtitle && <div className="text-xs text-secondary font-medium max-w-[200px] mx-auto leading-relaxed">{subtitle}</div>}
             </div>
             {action && (
                 <div className="pt-2">

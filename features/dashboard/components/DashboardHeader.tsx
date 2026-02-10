@@ -17,14 +17,14 @@ export const DashboardHeader: React.FC = () => {
     return (
         <div className="flex justify-between items-end px-2">
              <div>
-                 <h1 className="text-4xl font-black tracking-tighter text-white italic uppercase">{greeting}</h1>
-                 <p className="text-xs font-bold uppercase tracking-widest text-primary/80">
+                 <h1 className="text-3xl font-bold tracking-tight text-neutral-800">{greeting}</h1>
+                 <p className="text-xs font-medium uppercase tracking-wider text-primary">
                      {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                  </p>
              </div>
              <button 
                 onClick={() => navigate('/settings')} 
-                className="w-11 h-11 rounded-full bg-surface2/50 flex items-center justify-center text-secondary hover:text-white hover:bg-surface2 transition-all border border-white/10 hover:border-white/20 active:scale-95 shadow-sm"
+                className="w-11 h-11 rounded-lg bg-surface flex items-center justify-center text-secondary hover:text-primary hover:bg-surface2 transition-all border border-border active:scale-95 shadow-sm"
                 aria-label="Paramètres"
              >
                  <Icons.Settings size={22} />

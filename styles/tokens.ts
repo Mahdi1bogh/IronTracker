@@ -1,64 +1,64 @@
 
 export const PALETTE = {
-    // Base Colors (Dark Theme)
-    background: '#000000', // Pure Black
-    surface: '#1C1C1E',    // iOS Secondary
-    surface2: '#2C2C2E',   // iOS Tertiary
-    border: '#2C2C2E',
+    // Base Colors (Light Theme - Minimalistic Medical App Style)
+    background: '#f5f7fa', // Light gray background
+    surface: '#ffffff',    // White cards
+    surface2: '#f0f2f5',   // Light gray secondary
+    border: '#e5e7eb',     // Light border
     
     // Text Colors
     text: {
-        primary: '#ffffff',
-        secondary: '#8E8E93',
+        primary: '#1a202c',    // Dark navy/charcoal
+        secondary: '#6b7280',  // Medium gray
         white: '#ffffff',
         black: '#000000',
     },
 
     // Strict Requested Colors
-    success: '#00e17a', // Green
-    warning: '#ffd21f', // Yellow/Orange
-    danger: '#f04248',  // Red
+    success: '#10b981', // Teal/Green
+    warning: '#f59e0b', // Amber
+    danger: '#ef4444',  // Red
     
-    // UI Accents (Standardized)
-    info: '#007AFF',    // iOS Blue (Keep for generic links/info)
-    gold: '#ffd21f',    // Map Gold to Warning for consistency in stars/records
+    // UI Accents (Teal focused)
+    info: '#14b8a6',    // Teal (Main accent)
+    gold: '#f59e0b',    // Amber for gold/records
 
-    // Functional Colors (Mapped to new palette where possible)
+    // Functional Colors (Updated for light theme)
     muscle: {
-        pecs: '#007AFF',      // Blue
-        back: '#00e17a',      // Success Green
-        legs: '#ffd21f',      // Warning Yellow (Legacy Global)
-        quads: '#EAB308',     // Yellow/Gold
-        hamstrings: '#F97316',// Orange Rust
-        glutes: '#EC4899',    // Pink/Magenta
-        shoulders: '#8B5CF6', // Purple (Keep for distinction)
-        arms: '#f04248',      // Danger Red
-        abs: '#06B6D4',       // Cyan
-        calves: '#FF5F1F',    // Orange
-        forearms: '#6366F1',  // Indigo
-        cardio: '#8E8E93',    // Gray
-        neck: '#8E8E93'
+        pecs: '#14b8a6',      // Teal
+        back: '#10b981',      // Green
+        legs: '#f59e0b',      // Amber
+        quads: '#eab308',     // Yellow
+        hamstrings: '#f97316',// Orange
+        glutes: '#ec4899',    // Pink
+        shoulders: '#8b5cf6', // Purple
+        arms: '#ef4444',      // Red
+        abs: '#06b6d4',       // Cyan
+        calves: '#ff5f1f',    // Orange
+        forearms: '#6366f1',  // Indigo
+        cardio: '#9ca3af',    // Gray
+        neck: '#9ca3af'
     },
     
     // Fatigue Scale (RPE Adjusted: 1=Low/Good, 5=High/Bad)
     fatigue: {
-        1: '#00e17a', // Success (Facile)
-        2: '#E2FF3B', // Lime
-        3: '#ffd21f', // Warning (Moyen)
-        4: '#FF5F1F', // Orange
-        5: '#f04248'  // Danger (Epuisant)
+        1: '#10b981', // Success (Facile)
+        2: '#86efac', // Light Green
+        3: '#f59e0b', // Warning (Moyen)
+        4: '#fb923c', // Orange
+        5: '#ef4444'  // Danger (Epuisant)
     },
 
-    // Accents for charts/themes (Simplified)
+    // Accents for charts/themes (Teal/Minimalist)
     accents: {
-        blue: { primary: '#007AFF', glow: 'rgba(0, 122, 255, 0.3)' },
-        orange: { primary: '#FF5F1F', glow: 'rgba(255, 95, 31, 0.3)' }, // Burnt Orange
-        emerald: { primary: '#00e17a', glow: 'rgba(0, 225, 122, 0.3)' },
-        gold: { primary: '#ffd21f', glow: 'rgba(255, 210, 31, 0.3)' },
-        red: { primary: '#f04248', glow: 'rgba(240, 66, 72, 0.3)' },
-        purple: { primary: '#8B5CF6', glow: 'rgba(139, 92, 246, 0.3)' },
-        cyan: { primary: '#06B6D4', glow: 'rgba(6, 182, 212, 0.3)' },
-        gray: { primary: '#8E8E93', glow: 'rgba(142, 142, 147, 0.3)' }
+        blue: { primary: '#14b8a6', glow: 'rgba(20, 184, 166, 0.2)' },
+        orange: { primary: '#f97316', glow: 'rgba(249, 115, 22, 0.2)' },
+        emerald: { primary: '#10b981', glow: 'rgba(16, 185, 129, 0.2)' },
+        gold: { primary: '#f59e0b', glow: 'rgba(245, 158, 11, 0.2)' },
+        red: { primary: '#ef4444', glow: 'rgba(239, 68, 68, 0.2)' },
+        purple: { primary: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.2)' },
+        cyan: { primary: '#06b6d4', glow: 'rgba(6, 182, 212, 0.2)' },
+        gray: { primary: '#9ca3af', glow: 'rgba(156, 163, 175, 0.2)' }
     }
 };
 

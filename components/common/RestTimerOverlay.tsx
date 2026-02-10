@@ -20,15 +20,15 @@ export const RestTimerOverlay: React.FC<RestTimerOverlayProps> = ({
                 pointer-events-auto 
                 flex items-center gap-4 
                 px-6 py-4 
-                rounded-[2.5rem] 
-                shadow-[0_8px_32px_rgba(0,0,0,0.5)] 
-                backdrop-blur-xl 
+                rounded-xl 
+                shadow-lg 
+                backdrop-blur-md 
                 border 
                 animate-slide-in-bottom 
                 transition-all
                 ${showGo 
                     ? 'bg-success/20 border-success text-success scale-110' 
-                    : 'bg-[#1C1C1E]/90 border-white/10 text-white'
+                    : 'bg-white border-border text-neutral-800'
                 }
              `}>
                 {/* Timer Display */}
@@ -36,11 +36,11 @@ export const RestTimerOverlay: React.FC<RestTimerOverlayProps> = ({
                    {showGo ? (
                        <div className="flex items-center gap-2 animate-pulse">
                            <Icons.Flame size={24} fill="currentColor" />
-                           <span className="text-2xl font-black italic">GO!</span>
+                           <span className="text-2xl font-bold">GO!</span>
                        </div>
                    ) : (
                        <>
-                           <span className="text-[9px] font-black uppercase text-secondary/70 tracking-widest mb-0.5">Repos</span>
+                           <span className="text-[9px] font-medium uppercase text-secondary/70 tracking-wider mb-0.5">Repos</span>
                            <span className="text-3xl font-mono font-bold tracking-tighter leading-none tabular-nums">
                                {Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}
                            </span>
@@ -49,26 +49,26 @@ export const RestTimerOverlay: React.FC<RestTimerOverlayProps> = ({
                 </div>
 
                 {/* Controls Divider */}
-                {!showGo && <div className="w-px h-8 bg-white/10 mx-1" />}
+                {!showGo && <div className="w-px h-8 bg-border mx-1" />}
 
                 {/* Controls */}
                 {!showGo && (
                     <div className="flex gap-1.5">
                        <button 
                            onClick={() => { triggerHaptic('click'); setRestTarget((prev) => (prev || Date.now()) - 30000); }} 
-                           className="w-10 h-10 rounded-full bg-white/5 border border-white/5 text-white font-bold text-xs active:scale-90 hover:bg-white/10 transition-all flex items-center justify-center"
+                           className="w-10 h-10 rounded-lg bg-surface border border-border text-secondary font-bold text-xs active:scale-90 hover:text-primary transition-all flex items-center justify-center"
                        >
                            -30
                        </button>
                        <button 
                            onClick={() => { triggerHaptic('click'); setRestTarget((prev) => (prev || Date.now()) + 30000); }} 
-                           className="w-10 h-10 rounded-full bg-white/5 border border-white/5 text-white font-bold text-xs active:scale-90 hover:bg-white/10 transition-all flex items-center justify-center"
+                           className="w-10 h-10 rounded-lg bg-surface border border-border text-secondary font-bold text-xs active:scale-90 hover:text-primary transition-all flex items-center justify-center"
                        >
                            +30
                        </button>
                        <button 
                            onClick={() => { triggerHaptic('click'); setRestTarget(null); }} 
-                           className="w-10 h-10 rounded-full bg-danger/10 border border-danger/20 text-danger font-bold active:scale-90 hover:bg-danger/20 transition-all flex items-center justify-center ml-1"
+                           className="w-10 h-10 rounded-lg bg-danger/10 border border-danger/30 text-danger font-bold active:scale-90 hover:bg-danger/20 transition-all flex items-center justify-center ml-1"
                        >
                            <Icons.Close size={16} />
                        </button>

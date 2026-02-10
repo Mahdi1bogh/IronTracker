@@ -64,15 +64,15 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     return (
         <SectionCard className="overflow-hidden">
             {/* Exercise Header */}
-            <div className="p-3 bg-surface2/20 border-b border-border">
+            <div className="p-3 bg-surface2 border-b border-border">
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex gap-3 items-center w-full overflow-hidden">
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                            {!isFirst && <button onClick={() => onMove(exoIdx, exoIdx - 1)} className="p-0.5 text-secondary hover:text-white"><Icons.ChevronUp size={14} /></button>}
-                            {!isLast && <button onClick={() => onMove(exoIdx, exoIdx + 1)} className="p-0.5 text-secondary hover:text-white"><Icons.ChevronDown size={14} /></button>}
+                            {!isFirst && <button onClick={() => onMove(exoIdx, exoIdx - 1)} className="p-0.5 text-secondary hover:text-primary"><Icons.ChevronUp size={14} /></button>}
+                            {!isLast && <button onClick={() => onMove(exoIdx, exoIdx + 1)} className="p-0.5 text-secondary hover:text-primary"><Icons.ChevronDown size={14} /></button>}
                         </div>
                         <div className="min-w-0 flex-1">
-                            <div className="font-black uppercase text-sm truncate">{libEx?.name || 'Inconnu'}</div>
+                            <div className="font-bold uppercase text-sm truncate text-neutral-800">{libEx?.name || 'Inconnu'}</div>
                             <div className="text-[10px] text-secondary flex justify-between items-center pr-2 mt-0.5">
                                 <span>{exo.target} • {exo.rest}s</span>
                             </div>
@@ -82,14 +82,14 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {/* Tools Actions */}
                     <div className="flex items-center gap-1 flex-shrink-0 ml-1">
                         {!isCardio && !isStatic && (
-                            <button onClick={() => onPlateHelp(exo.sets[exo.sets.length-1]?.weight || "20")} className="p-2 rounded-lg text-secondary hover:text-white transition-colors">
+                            <button onClick={() => onPlateHelp(exo.sets[exo.sets.length-1]?.weight || "20")} className="p-2 rounded-lg text-secondary hover:text-primary transition-colors">
                                 <Icons.Disc size={18} />
                             </button>
                         )}
-                        <button onClick={onWarmup} className="p-2 rounded-lg text-secondary hover:text-gold transition-colors">
+                        <button onClick={onWarmup} className="p-2 rounded-lg text-secondary hover:text-warning transition-colors">
                             <Icons.Flame size={18} />
                         </button>
-                        <button onClick={onOpenDetail} className={`p-2 rounded-lg transition-colors ${exo.notes ? 'text-white bg-surface2' : 'text-secondary hover:text-white'}`}>
+                        <button onClick={onOpenDetail} className={`p-2 rounded-lg transition-colors ${exo.notes ? 'text-white bg-primary' : 'text-secondary hover:text-primary'}`}>
                             <Icons.Search size={18} />
                         </button>
                         <button onClick={() => onRemove(exoIdx)} className="p-2 text-danger/50 hover:text-danger rounded-lg"><Icons.Trash size={18} /></button>
@@ -99,39 +99,39 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 {/* Stats Grid (Aligned) */}
                 <div className="grid grid-cols-2 gap-2 text-[10px]">
                     {/* Column 1: History */}
-                    <div className="bg-surface2/30 rounded-lg p-2 border border-white/5 space-y-1">
-                        <div className="text-[8px] font-black uppercase text-secondary/50 mb-1 border-b border-white/5 pb-0.5">Historique</div>
+                    <div className="bg-surface rounded-lg p-2 border border-border space-y-1">
+                        <div className="text-[8px] font-medium uppercase text-secondary mb-1 border-b border-border pb-0.5">Historique</div>
                         <div className="flex justify-between items-center h-4">
-                            <span className="text-secondary/70">Perf.</span>
-                            <span className="text-secondary font-mono font-bold truncate ml-2">{stats.lastSessionString}</span>
+                            <span className="text-secondary">Perf.</span>
+                            <span className="text-neutral-700 font-mono font-bold truncate ml-2">{stats.lastSessionString}</span>
                         </div>
                         {!isCardio && !isStatic && (
                             <>
                                 <div className="flex justify-between items-center h-4">
-                                    <span className="text-secondary/70">1RM</span>
-                                    <span className="text-secondary font-mono font-bold">{Math.round(stats.lastBestSet?.e1rm || 0)} <span className="text-[8px] font-normal">kg</span></span>
+                                    <span className="text-secondary">1RM</span>
+                                    <span className="text-neutral-700 font-mono font-bold">{Math.round(stats.lastBestSet?.e1rm || 0)} <span className="text-[8px] font-normal">kg</span></span>
                                 </div>
                                 <div className="flex justify-between items-center h-4">
-                                    <span className="text-secondary/70">Ton.</span>
-                                    <span className="text-secondary font-mono font-bold">{Math.round(stats.lastSessionVolume)} <span className="text-[8px] font-normal">kg</span></span>
+                                    <span className="text-secondary">Ton.</span>
+                                    <span className="text-neutral-700 font-mono font-bold">{Math.round(stats.lastSessionVolume)} <span className="text-[8px] font-normal">kg</span></span>
                                 </div>
                             </>
                         )}
                     </div>
 
                     {/* Column 2: Current Session */}
-                    <div className="bg-primary/5 rounded-lg p-2 border border-primary/5 space-y-1">
-                        <div className="text-[8px] font-black uppercase text-primary/50 mb-1 border-b border-primary/5 pb-0.5">Session</div>
+                    <div className="bg-primary/10 rounded-lg p-2 border border-primary/20 space-y-1">
+                        <div className="text-[8px] font-medium uppercase text-primary mb-1 border-b border-primary/20 pb-0.5">Session</div>
                         <div className="flex justify-between items-center h-4">
-                            <span className="text-primary/70">Perf.</span>
-                            <span className="text-primary/90 font-mono font-bold truncate ml-2 italic">{currentVolume > 0 || (isCardio || isStatic) ? "En cours..." : "-"}</span>
+                            <span className="text-primary">Perf.</span>
+                            <span className="text-primary font-mono font-bold truncate ml-2 italic">{currentVolume > 0 || (isCardio || isStatic) ? "En cours..." : "-"}</span>
                         </div>
                         {!isCardio && !isStatic && (
                             <>
                                 <div className="flex justify-between items-center h-4">
-                                    <span className="text-primary/70">1RM</span>
+                                    <span className="text-primary">1RM</span>
                                     <div className="flex items-center gap-1 font-mono font-bold">
-                                        <span className="text-primary/90">{Math.round(currentBestE1RM)} <span className="text-[8px] font-normal opacity-70">kg</span></span>
+                                        <span className="text-primary">{Math.round(currentBestE1RM)} <span className="text-[8px] font-normal opacity-70">kg</span></span>
                                         {stats.lastBestSet?.e1rm && currentBestE1RM > 0 ? (
                                             <span className={`text-[8px] ${rmTrend.color}`}>
                                                 {rmTrend.sym}{Math.abs(rmPct)}%
@@ -140,9 +140,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center h-4">
-                                    <span className="text-primary/70">Ton.</span>
+                                    <span className="text-primary">Ton.</span>
                                     <div className="flex items-center gap-1 font-mono font-bold">
-                                        <span className="text-primary/90">{Math.round(currentVolume)} <span className="text-[8px] font-normal opacity-70">kg</span></span>
+                                        <span className="text-primary">{Math.round(currentVolume)} <span className="text-[8px] font-normal opacity-70">kg</span></span>
                                         {stats.lastSessionVolume > 0 && currentVolume > 0 && (
                                             <span className={`text-[8px] ${tonTrend.color}`}>
                                                 {tonTrend.sym}{Math.abs(tonPct)}%
@@ -163,10 +163,10 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         {/* Left Controls */}
                         <div className="col-span-2 flex flex-col items-center justify-center gap-1">
                             <div className="flex gap-1">
-                                <button onClick={() => onRemoveSet(exoIdx, setIdx)} className="w-5 h-5 flex items-center justify-center text-danger/30 hover:text-danger bg-danger/5 rounded"><Icons.Close size={10} /></button>
+                                <button onClick={() => onRemoveSet(exoIdx, setIdx)} className="w-5 h-5 flex items-center justify-center text-danger/40 hover:text-danger bg-danger/10 rounded"><Icons.Close size={10} /></button>
                                 <button 
                                     onClick={() => onUpdateSet(exoIdx, setIdx, 'isWarmup', !set.isWarmup)} 
-                                    className={`w-6 h-6 flex items-center justify-center text-center font-mono text-[10px] font-bold rounded border transition-colors ${set.isWarmup ? 'text-warning bg-warning/10 border-warning' : 'text-secondary border-transparent bg-surface2/50'}`}
+                                    className={`w-6 h-6 flex items-center justify-center text-center font-mono text-[10px] font-bold rounded border transition-colors ${set.isWarmup ? 'text-warning bg-warning/10 border-warning' : 'text-secondary border-border bg-surface'}`}
                                 >
                                     {set.isWarmup ? 'W' : setIdx + 1}
                                 </button>
@@ -177,7 +177,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         <div className="col-span-3 relative">
                             <input 
                                 type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "Lvl" : "kg"}
-                                className="w-full bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-white/20 border border-transparent text-xs"
+                                className="w-full bg-surface border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-neutral-800"
                                 value={set.weight}
                                 onChange={(e) => onUpdateSet(exoIdx, setIdx, 'weight', e.target.value)}
                             />
@@ -185,7 +185,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         <div className="col-span-3 relative">
                             <input 
                                 type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "Dist" : isStatic ? "T (s)" : "reps"}
-                                className="w-full bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-white/20 border border-transparent text-xs"
+                                className="w-full bg-surface border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-neutral-800"
                                 value={set.reps}
                                 onChange={(e) => onUpdateSet(exoIdx, setIdx, 'reps', e.target.value)}
                             />
@@ -193,7 +193,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         <div className="col-span-2 relative">
                             <input 
                                 type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "T (min)" : "RIR"}
-                                className="w-full bg-surface2 p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-white/20 border border-transparent text-xs"
+                                className="w-full bg-surface border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-neutral-800"
                                 value={set.rir || ''}
                                 onChange={(e) => onUpdateSet(exoIdx, setIdx, 'rir', e.target.value)}
                             />
@@ -202,7 +202,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         {/* Validation Button */}
                         <button 
                             onClick={() => onUpdateSet(exoIdx, setIdx, 'done', !set.done)}
-                            className={`col-span-2 h-9 rounded-xl flex flex-col items-center justify-center transition-all relative ${set.done ? 'bg-success text-white scale-95' : 'bg-surface2 text-secondary hover:bg-surface2/80 active:scale-95'}`}
+                            className={`col-span-2 h-9 rounded-lg flex flex-col items-center justify-center transition-all relative ${set.done ? 'bg-success text-white scale-95' : 'bg-surface border border-border text-secondary hover:border-primary active:scale-95'}`}
                         >
                             {set.done ? (
                                 <>
@@ -217,7 +217,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         </button>
                     </div>
                 ))}
-                <button onClick={() => onAddSet(exoIdx)} className="w-full py-2 bg-surface2/30 rounded-xl text-[10px] font-bold uppercase text-secondary border border-dashed border-border/50 hover:border-white/20 transition-colors flex items-center justify-center gap-2">
+                <button onClick={() => onAddSet(exoIdx)} className="w-full py-2 bg-surface rounded-lg text-[10px] font-medium uppercase text-secondary border border-dashed border-border hover:border-primary transition-colors flex items-center justify-center gap-2">
                     <Icons.Plus size={12} /> Série
                 </button>
             </div>

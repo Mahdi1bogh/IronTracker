@@ -7,7 +7,7 @@
     
     <!-- PWA Configuration -->
     <title>IronTracker</title>
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#f5f7fa">
     <meta name="description" content="Suivi de performance musculation : Programmes, Analytics, et Progression.">
     <link rel="manifest" href="/manifest.json?v=3.0.0">
     <link rel="icon" type="image/svg+xml" href="/icon.svg">
@@ -24,17 +24,17 @@
         theme: {
           extend: {
             colors: {
-              background: '#020617', // Slate 950
-              surface: '#0f172a',    // Slate 900
-              surface2: '#1e293b',   // Slate 800
-              border: '#334155',     // Slate 700
+              background: '#f5f7fa', // Light gray
+              surface: '#ffffff',    // White
+              surface2: '#f0f2f5',   // Light gray secondary
+              border: '#e5e7eb',     // Light border
               primary: 'var(--primary)',
-              secondary: '#94a3b8',  // Slate 400
-              success: '#00e17a',
-              danger: '#f04248',
-              warning: '#ffd21f',
-              gold: '#ffd21f',
-              orange: '#FF5F1F'
+              secondary: '#6b7280',  // Medium gray
+              success: '#10b981',
+              danger: '#ef4444',
+              warning: '#f59e0b',
+              gold: '#f59e0b',
+              orange: '#f97316'
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
@@ -75,13 +75,13 @@
     </script>
     <style>
       :root {
-        --primary: #58a6ff;
-        --primary-glow: rgba(88,166,255,0.3);
+        --primary: #14b8a6;
+        --primary-glow: rgba(20,184,166,0.2);
       }
       body {
-        background: radial-gradient(circle at top left, #1e293b 0%, #020617 40%, #000000 100%);
+        background: #f5f7fa;
         background-attachment: fixed;
-        color: #e2e8f0;
+        color: #1a202c;
         -webkit-tap-highlight-color: transparent;
         font-family: 'Inter', sans-serif;
       }
@@ -99,10 +99,10 @@
       }
       /* Glassmorphism utility */
       .glass {
-        background: rgba(15, 23, 42, 0.6);
+        background: rgba(255, 255, 255, 0.8);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.08);
       }
       
       /* Staggered Animation Delays */
