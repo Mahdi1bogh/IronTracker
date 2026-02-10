@@ -50,25 +50,25 @@ export const HistoryHubView: React.FC<HistoryHubViewProps> = ({ onStartSession }
             {/* HUB HEADER & TABS */}
             <div className="flex flex-col gap-4 mb-4 flex-shrink-0">
                 <div className="flex justify-between items-center px-1">
-                     <h2 className="text-2xl font-black italic uppercase text-white">
+                     <h2 className="text-2xl font-bold uppercase text-neutral-800">
                         {activeTab === 'calendar' ? 'Journal' : activeTab === 'records' ? 'Records' : 'Carnet'}
                      </h2>
-                     <div className="bg-surface2/50 p-1 rounded-[1.2rem] border border-white/5 flex gap-1">
+                     <div className="bg-surface p-1 rounded-lg border border-border flex gap-1">
                          <button 
                             onClick={() => handleTabChange('calendar')}
-                            className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'calendar' ? 'bg-primary text-black shadow-lg' : 'text-secondary hover:text-white'}`}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeTab === 'calendar' ? 'bg-primary text-white shadow-md' : 'text-secondary hover:text-primary'}`}
                          >
                              <Icons.Calendar size={20} />
                          </button>
                          <button 
                             onClick={() => handleTabChange('records')}
-                            className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'records' ? 'bg-primary text-black shadow-lg' : 'text-secondary hover:text-white'}`}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeTab === 'records' ? 'bg-primary text-white shadow-md' : 'text-secondary hover:text-primary'}`}
                          >
                              <Icons.Records size={20} />
                          </button>
                          <button 
                             onClick={() => handleTabChange('notes')}
-                            className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'notes' ? 'bg-primary text-black shadow-lg' : 'text-secondary hover:text-white'}`}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeTab === 'notes' ? 'bg-primary text-white shadow-md' : 'text-secondary hover:text-primary'}`}
                          >
                              <Icons.Note size={20} />
                          </button>

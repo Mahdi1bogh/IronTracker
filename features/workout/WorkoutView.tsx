@@ -66,13 +66,13 @@ export const WorkoutView: React.FC = () => {
         {/* Header Section */}
         <div className="flex items-start justify-between">
             <div className="text-left">
-                <h2 className="text-2xl font-black italic uppercase leading-none">{session.sessionName}</h2>
+                <h2 className="text-2xl font-bold uppercase leading-none text-neutral-800">{session.sessionName}</h2>
                 <div className="flex gap-2 items-center mt-1">
-                    <p className="text-secondary text-xs uppercase tracking-widest">{session.programName}</p>
-                    {isLogMode && <span className="text-[9px] font-bold bg-secondary/20 text-secondary px-1.5 rounded uppercase">Mode Saisie</span>}
+                    <p className="text-secondary text-xs uppercase tracking-wider">{session.programName}</p>
+                    {isLogMode && <span className="text-[9px] font-medium bg-primary/10 text-primary px-1.5 rounded uppercase">Mode Saisie</span>}
                 </div>
             </div>
-            <button onClick={() => setShowSessionSettings(true)} className="p-2 bg-surface2 rounded-xl text-secondary hover:text-white transition-colors border border-transparent hover:border-border">
+            <button onClick={() => setShowSessionSettings(true)} className="p-2 bg-surface rounded-lg text-secondary hover:text-primary transition-colors border border-border">
                 <Icons.Settings size={20} />
             </button>
         </div>

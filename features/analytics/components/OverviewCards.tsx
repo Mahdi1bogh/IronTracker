@@ -9,16 +9,16 @@ interface OverviewCardsProps {
 export const OverviewCards: React.FC<OverviewCardsProps> = ({ stats }) => (
     <div className="grid grid-cols-3 gap-3">
         <SectionCard className="p-4 flex flex-col items-center justify-center gap-1">
-            <div className="text-2xl font-black text-white">{stats.totalSessions}</div>
-            <div className="text-[9px] font-bold uppercase text-secondary">Séances</div>
+            <div className="text-2xl font-bold text-primary">{stats.totalSessions}</div>
+            <div className="text-[9px] font-medium uppercase text-secondary">Séances</div>
         </SectionCard>
         <SectionCard className="p-4 flex flex-col items-center justify-center gap-1">
-            <div className="text-2xl font-black text-white">{stats.totalSets}</div>
-            <div className="text-[9px] font-bold uppercase text-secondary">Sets</div>
+            <div className="text-2xl font-bold text-primary">{stats.totalSets}</div>
+            <div className="text-[9px] font-medium uppercase text-secondary">Sets</div>
         </SectionCard>
         <SectionCard className="p-4 flex flex-col items-center justify-center gap-1">
-            <div className="text-2xl font-black text-white">{stats.totalTonnage}k</div>
-            <div className="text-[9px] font-bold uppercase text-secondary">Tonnage</div>
+            <div className="text-2xl font-bold text-primary">{stats.totalTonnage}k</div>
+            <div className="text-[9px] font-medium uppercase text-secondary">Tonnage</div>
         </SectionCard>
     </div>
 );

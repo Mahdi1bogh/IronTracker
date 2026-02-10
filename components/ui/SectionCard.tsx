@@ -7,8 +7,8 @@ interface SectionCardProps {
     radius?: string;
 }
 
-export const SectionCard: React.FC<SectionCardProps> = ({ children, className = "", radius = "rounded-[2rem]" }) => (
-    <div className={`glass shadow-sm ${radius} ${className}`}>
+export const SectionCard: React.FC<SectionCardProps> = ({ children, className = "", radius = "rounded-xl" }) => (
+    <div className={`bg-white border border-border shadow-sm ${radius} ${className}`}>
         {children}
     </div>
 );

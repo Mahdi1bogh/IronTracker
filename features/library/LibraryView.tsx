@@ -127,7 +127,7 @@ export const LibraryView: React.FC = () => {
     return (
       <div className="space-y-4 animate-fade-in pb-24 h-full flex flex-col">
           <div className="flex justify-between items-center px-1 gap-2 flex-shrink-0">
-              <h2 className="text-2xl font-black italic uppercase truncate">Bibliothèque</h2>
+              <h2 className="text-2xl font-bold uppercase truncate text-neutral-800">Bibliothèque</h2>
               
               {/* Filter Pills Group */}
               <div className="flex items-center gap-1.5 flex-shrink-0 overflow-x-auto no-scrollbar">
@@ -135,7 +135,7 @@ export const LibraryView: React.FC = () => {
                   <button 
                       onClick={cycleMuscle}
                       onContextMenu={resetFilter(setMuscleFilterIdx)}
-                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent whitespace-nowrap ${activeMuscle ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
+                      className={`h-7 px-2.5 rounded-lg text-[9px] font-medium uppercase transition-all border border-transparent whitespace-nowrap ${activeMuscle ? 'bg-primary text-white shadow-md scale-105' : 'bg-surface border-border text-secondary hover:border-border'}`}
                   >
                       {activeMuscle ? activeMuscle.substring(0, 4) : 'Musc.'}
                   </button>
@@ -144,7 +144,7 @@ export const LibraryView: React.FC = () => {
                   <button 
                       onClick={cycleType}
                       onContextMenu={resetFilter(setTypeFilterIdx)}
-                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent whitespace-nowrap ${activeType ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
+                      className={`h-7 px-2.5 rounded-lg text-[9px] font-medium uppercase transition-all border border-transparent whitespace-nowrap ${activeType ? 'bg-primary text-white shadow-md scale-105' : 'bg-surface border-border text-secondary hover:border-border'}`}
                   >
                       {activeType && typeof activeType === 'string' ? TYPE_LABELS[activeType] : 'Type'}
                   </button>
@@ -153,13 +153,13 @@ export const LibraryView: React.FC = () => {
                   <button 
                       onClick={cycleEquip}
                       onContextMenu={resetFilter(setEquipFilterIdx)}
-                      className={`h-7 px-2.5 rounded-full text-[9px] font-black uppercase transition-all border border-transparent whitespace-nowrap ${activeEquip ? 'bg-primary text-background shadow-[0_0_10px_rgba(var(--primary),0.4)] scale-105' : 'bg-surface2 text-secondary hover:border-white/10'}`}
+                      className={`h-7 px-2.5 rounded-lg text-[9px] font-medium uppercase transition-all border border-transparent whitespace-nowrap ${activeEquip ? 'bg-primary text-white shadow-md scale-105' : 'bg-surface border-border text-secondary hover:border-border'}`}
                   >
                       {activeEquip ? activeEquip : 'Equip.'}
                   </button>
 
                   {/* Count Pill */}
-                  <div className="h-7 px-2.5 flex items-center justify-center rounded-full bg-surface2 text-secondary text-[9px] font-bold border border-white/5">
+                  <div className="h-7 px-2.5 flex items-center justify-center rounded-lg bg-surface border border-border text-secondary text-[9px] font-medium">
                       {filteredLibrary.length}
                   </div>
               </div>
@@ -171,16 +171,16 @@ export const LibraryView: React.FC = () => {
                     triggerHaptic('click'); 
                     setEditingExercise({ id: 0, name: "", type: "Isolation", muscle: "Pectoraux", equipment: "BB" }); 
                 }} 
-                className="w-full py-4 bg-primary text-background font-black uppercase rounded-[2rem] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-primary/20"
+                className="w-full py-4 bg-primary text-white font-bold uppercase rounded-lg flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md"
             >
                 <Icons.Plus size={18} strokeWidth={3} />
                 <span>Nouveau</span>
             </button>
 
-            <div className="bg-surface2 p-2 rounded-2xl flex items-center gap-2 border border-transparent focus-within:border-primary/50 transition-colors">
+            <div className="bg-surface p-2 rounded-lg flex items-center gap-2 border border-border focus-within:border-primary/50 transition-colors">
                 <span className="text-secondary pl-2"><Icons.Search size={16} /></span>
                 <input 
-                    className="bg-transparent w-full p-2 outline-none font-bold text-sm placeholder-secondary/50" 
+                    className="bg-transparent w-full p-2 outline-none font-medium text-sm placeholder-secondary text-neutral-800" 
                     placeholder="Rechercher (nom, muscle...)" 
                     value={libraryFilter}
                     onChange={e => setLibraryFilter(e.target.value)}
@@ -204,7 +204,7 @@ export const LibraryView: React.FC = () => {
                   }
                   renderItem={(l) => (
                       <div 
-                        className="bg-surface border border-transparent hover:border-border p-3 rounded-2xl flex justify-between items-center group cursor-pointer transition-all active:scale-95 h-full" 
+                        className="bg-white border border-border hover:shadow-md p-3 rounded-lg flex justify-between items-center group cursor-pointer transition-all active:scale-95 h-full" 
                         onClick={() => { triggerHaptic('click'); setSelectedDetailId(l.id); }}
                       >
                           <div className="flex items-center gap-3 overflow-hidden">

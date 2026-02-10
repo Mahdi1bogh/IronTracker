@@ -61,16 +61,16 @@ export const ConfirmationModal: React.FC = () => {
     const isDanger = variant === 'danger';
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm animate-fade-in">
-            <div className="bg-surface border border-border p-6 rounded-[2rem] w-full max-w-sm shadow-2xl space-y-5 animate-zoom-in">
+        <div className="fixed inset-0 z-[100] bg-black/20 flex items-center justify-center p-6 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white border border-border p-6 rounded-xl w-full max-w-sm shadow-lg space-y-5 animate-zoom-in">
                
                <div className="flex flex-col items-center gap-2">
                    {isDanger && <Icons.TrendUp className="text-warning rotate-180" size={32} />}
-                   <h3 className={`text-xl font-black italic uppercase text-center ${isDanger ? 'text-white' : 'text-white'}`}>{title || "Confirmation"}</h3>
+                   <h3 className={`text-lg font-bold text-center ${isDanger ? 'text-warning' : 'text-neutral-800'}`}>{title || "Confirmation"}</h3>
                </div>
 
                <div className="space-y-2 text-center">
-                   <div className={`font-bold text-sm ${isDanger ? 'text-warning' : 'text-white'}`}>
+                   <div className={`font-medium text-sm ${isDanger ? 'text-warning' : 'text-neutral-700'}`}>
                        {isDanger && "⚠️ "}{message}
                    </div>
                    {subMessage && <div className="text-xs text-secondary whitespace-pre-wrap">{subMessage}</div>}
@@ -81,10 +81,9 @@ export const ConfirmationModal: React.FC = () => {
                       onClick={() => { 
                           triggerHaptic('click'); 
                           if (onCancel) onCancel();
-                          // Ici on ferme manuellement, le cleanup fera le history.back() si nécessaire
                           closeConfirmation();
                       }} 
-                      className="py-3.5 bg-surface2 rounded-xl text-xs font-bold uppercase text-secondary hover:text-white hover:bg-surface2/80 transition-colors"
+                      className="py-3 bg-surface2 rounded-lg text-xs font-medium uppercase text-secondary hover:text-neutral-700 hover:bg-surface2/80 transition-colors"
                   >
                       {cancelLabel}
                   </button>
@@ -94,7 +93,7 @@ export const ConfirmationModal: React.FC = () => {
                           onConfirm(); 
                           closeConfirmation(); 
                       }} 
-                      className={`py-3.5 rounded-xl text-xs font-bold uppercase text-black shadow-lg transition-transform active:scale-95 ${isDanger ? 'bg-warning shadow-warning/20' : 'bg-success shadow-success/20'}`}
+                      className={`py-3 rounded-lg text-xs font-bold uppercase text-white transition-transform active:scale-95 ${isDanger ? 'bg-warning' : 'bg-primary'}`}
                   >
                       {confirmLabel}
                   </button>

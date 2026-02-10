@@ -47,29 +47,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     return (
       <div className="space-y-6 animate-fade-in pb-20">
-          <h2 className="text-2xl font-black italic uppercase px-1">Configuration</h2>
+          <h2 className="text-2xl font-bold uppercase px-1 text-neutral-800">Configuration</h2>
           
           <SectionCard className="p-6 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Apparence</h3>
+              <h3 className="text-sm font-medium uppercase tracking-wider text-secondary">Apparence</h3>
               <div className="flex gap-3 overflow-x-auto pb-2 px-2 no-scrollbar -mx-2 p-4">
                   {Object.entries(THEMES).map(([key, val]) => (
                       <button 
                          key={key} 
                          onClick={() => { triggerHaptic('tick'); setAccentColor(key as AccentColor); }} 
-                         className={`w-10 h-10 min-w-[2.5rem] rounded-full border-2 flex items-center justify-center transition-all ${accentColor === key ? 'border-white scale-110' : 'border-transparent'}`}
+                         className={`w-10 h-10 min-w-[2.5rem] rounded-full border-2 flex items-center justify-center transition-all ${accentColor === key ? 'border-neutral-800 scale-110' : 'border-transparent'}`}
                          style={{ backgroundColor: val.primary }}
                       >
-                          {accentColor === key && <span className="text-black bg-white/50 rounded-full w-4 h-4" />}
+                          {accentColor === key && <span className="text-white bg-neutral-800/50 rounded-full w-4 h-4" />}
                       </button>
                   ))}
               </div>
           </SectionCard>
 
           <SectionCard className="p-6 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Feedback & Alertes</h3>
+              <h3 className="text-sm font-medium uppercase tracking-wider text-secondary">Feedback & Alertes</h3>
               <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                      <span className="font-bold text-sm">Vibrations Tactiles</span>
+                      <span className="font-medium text-sm text-neutral-800">Vibrations Tactiles</span>
                       <button onClick={() => { 
                           const newVal = !hapticTactile; 
                           setHapticTactile(newVal); 
@@ -80,7 +80,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </button>
                   </div>
                   <div className="flex justify-between items-center">
-                      <span className="font-bold text-sm">Vibrations Séance</span>
+                      <span className="font-medium text-sm text-neutral-800">Vibrations Séance</span>
                       <button onClick={() => { 
                           const newVal = !hapticSession; 
                           setHapticSession(newVal); 
@@ -92,7 +92,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                   <div className="flex justify-between items-center">
                       <div className="flex flex-col">
-                          <span className="font-bold text-sm">Notifications Système</span>
+                          <span className="font-medium text-sm text-neutral-800">Notifications Système</span>
                           <span className="text-[10px] text-secondary">Pour le chrono en arrière-plan</span>
                       </div>
                       <button onClick={toggleNotif} className={`w-12 h-6 rounded-full transition-colors relative ${notifEnabled ? 'bg-primary' : 'bg-surface2'}`}>
@@ -103,17 +103,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </SectionCard>
 
           <SectionCard className="p-6 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Données</h3>
+              <h3 className="text-sm font-medium uppercase tracking-wider text-secondary">Données</h3>
               <div className="grid grid-cols-2 gap-3">
                   <button onClick={() => {
                       triggerHaptic('success');
                       const data = { history, library, programs };
                       const date = new Date().toISOString().split('T')[0];
                       downloadFile(JSON.stringify(data), `irontracker_backup_${date}.json`);
-                  }} className="bg-surface2 p-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-surface2/80 transition-colors">
+                  }} className="bg-surface border border-border p-3 rounded-lg font-medium text-xs uppercase flex items-center justify-center gap-2 hover:bg-surface2 transition-colors">
                       <Icons.Download /> Sauvegarder
                   </button>
-                  <label className="bg-surface2 p-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-surface2/80 transition-colors cursor-pointer">
+                  <label className="bg-surface border border-border p-3 rounded-lg font-medium text-xs uppercase flex items-center justify-center gap-2 hover:bg-surface2 transition-colors cursor-pointer">
                       <Icons.Upload /> Restaurer
                       <input type="file" accept=".json" className="hidden" onChange={e => {
                           const file = e.target.files?.[0];

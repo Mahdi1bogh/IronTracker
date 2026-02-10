@@ -57,14 +57,14 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ onStartPreview }) =>
     return (
       <div className="space-y-6 animate-fade-in pb-24 h-full flex flex-col">
           <div className="flex-shrink-0 space-y-6">
-              <h2 className="text-2xl font-black italic uppercase px-1">Programmes</h2>
+              <h2 className="text-2xl font-bold uppercase px-1 text-neutral-800">Programmes</h2>
               
               <button 
                   onClick={() => { 
                       triggerHaptic('click'); 
                       navigate('/programs/edit/new');
                   }} 
-                  className="w-full py-4 bg-primary text-background font-black uppercase rounded-[2rem] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-primary/20"
+                  className="w-full py-4 bg-primary text-white font-bold uppercase rounded-lg flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md"
               >
                   <Icons.Plus size={18} strokeWidth={3} />
                   <span>Nouveau Programme</span>
@@ -74,12 +74,12 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ onStartPreview }) =>
           <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-4">
               {programs.length > 0 ? programs.map(prog => (
                   <SectionCard key={prog.id} className="overflow-hidden">
-                      <div className="p-4 bg-surface2/30 border-b border-border flex justify-between items-center">
-                          <h3 className="font-black italic text-lg uppercase truncate pr-2">{prog.name}</h3>
+                      <div className="p-4 bg-surface2 border-b border-border flex justify-between items-center">
+                          <h3 className="font-bold text-lg uppercase truncate pr-2 text-neutral-800">{prog.name}</h3>
                           <div className="flex items-center gap-1 flex-shrink-0">
                               <button 
                                   onClick={() => { triggerHaptic('click'); onDuplicateProgram(prog.id); }} 
-                                  className="p-2 text-secondary hover:text-white transition-colors rounded-lg"
+                                  className="p-2 text-secondary hover:text-primary transition-colors rounded-lg"
                                   aria-label="Dupliquer"
                               >
                                   <Icons.Copy size={18} />
@@ -90,12 +90,12 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ onStartPreview }) =>
                       </div>
                       <div className="p-2 space-y-2">
                           {prog.sessions.map(sess => (
-                              <div key={sess.id} className="bg-surface2/20 p-3 rounded-xl flex justify-between items-center group hover:bg-surface2/50 transition-all cursor-pointer" onClick={() => { triggerHaptic('click'); onStartPreview(prog.name, sess); }}>
+                              <div key={sess.id} className="bg-surface p-3 rounded-lg flex justify-between items-center group hover:bg-primary/10 transition-all cursor-pointer border border-border hover:border-primary" onClick={() => { triggerHaptic('click'); onStartPreview(prog.name, sess); }}>
                                   <div>
-                                      <div className="font-bold text-sm">{sess.name}</div>
+                                      <div className="font-medium text-sm text-neutral-800">{sess.name}</div>
                                       <div className="text-[10px] text-secondary">{sess.exos.length} exercices</div>
                                   </div>
-                                  <button className="w-8 h-8 rounded-full bg-surface2 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all border border-primary/20 group-hover:border-transparent">
+                                  <button className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all border border-border group-hover:border-transparent">
                                       <Icons.ChevronRight size={16} />
                                   </button>
                               </div>
