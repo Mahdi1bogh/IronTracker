@@ -6,6 +6,7 @@ import { Icons } from '../../../components/icons/Icons';
 import { useStore } from '../../../store/useStore';
 import { calculate1RM, parseDuration, formatDuration, triggerHaptic } from '../../../core/utils';
 import { FATIGUE_COLORS } from '../../../core/constants';
+import { PALETTE } from '../../../styles/tokens';
 
 // Déclaration pour la lib chargée via CDN
 declare const html2canvas: any;
@@ -19,6 +20,7 @@ interface SessionDetailModalProps {
 export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session, onClose, onEdit }) => {
     const library = useStore(s => s.library);
     const history = useStore(s => s.history);
+    const accentColor = useStore(s => s.accentColor);
     const receiptRef = useRef<HTMLDivElement>(null);
     const [isSharing, setIsSharing] = useState(false);
 
@@ -35,7 +37,7 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
         return { dateStr, timeRange: `${startTimeStr} - ${endTimeStr}` };
     }, [session]);
 
-    // Stats globales du ticket + Comparaison Moyenne
+    // Stats globales du ticket + Comparaison Historique
     const stats = useMemo(() => {
         const duration = session.endTime ? Math.floor((session.endTime - session.startTime) / 60000) : 0;
         const totalSets = session.exercises.reduce((acc, e) => acc + e.sets.filter(s => s.done && !s.isWarmup).length, 0);
@@ -48,22 +50,31 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
 
         const currentVolume = calculateVolume(session);
 
-        // Calcul de la moyenne sur les 5 dernières séances du même type
+        // Récupérer les 5 dernières séances du même type pour la moyenne
         const previousSessions = history
-            .filter(h => h.programName === session.programName && h.sessionName === session.sessionName && h.id !== session.id)
+            .filter(h => h.programName === session.programName && h.sessionName === session.sessionName && h.startTime < session.startTime)
             .sort((a,b) => b.startTime - a.startTime)
             .slice(0, 5);
         
-        let avgVolume = 0;
+        const historyVolumes = previousSessions.map(h => calculateVolume(h));
+        
+        // Intensity Ratio (vs Avg)
         let intensityRatio = 100;
-
-        if (previousSessions.length > 0) {
-            const sumVol = previousSessions.reduce((acc, h) => acc + calculateVolume(h), 0);
-            avgVolume = sumVol / previousSessions.length;
+        let avgVolume = 0;
+        
+        if (historyVolumes.length > 0) {
+            avgVolume = historyVolumes.reduce((a, b) => a + b, 0) / historyVolumes.length;
             intensityRatio = avgVolume > 0 ? Math.round((currentVolume / avgVolume) * 100) : 100;
         }
 
-        return { duration, totalSets, totalVolume: currentVolume, intensityRatio, hasHistory: previousSessions.length > 0 };
+        return { 
+            duration, 
+            totalSets, 
+            totalVolume: currentVolume, 
+            intensityRatio, 
+            avgVolume,
+            hasHistory: historyVolumes.length > 0
+        };
     }, [session, library, history]);
 
     const handleShare = async () => {
@@ -72,15 +83,14 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
         triggerHaptic('click');
 
         try {
-            // Petit délai pour laisser le temps au state UI de se mettre à jour si besoin
             await new Promise(r => setTimeout(r, 50));
 
             const canvas = await html2canvas(receiptRef.current, {
-                scale: 3, // Haute résolution pour Retina
-                backgroundColor: '#0f172a', // Match background
+                scale: 3, 
+                backgroundColor: '#0f172a',
                 useCORS: true,
                 logging: false,
-                windowWidth: 400 // Force width pour éviter layout shifts
+                windowWidth: 400
             });
 
             canvas.toBlob(async (blob: Blob | null) => {
@@ -103,7 +113,6 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
                         console.debug('Share cancelled or failed', shareError);
                     }
                 } else {
-                    // Fallback Download
                     const link = document.createElement('a');
                     link.href = URL.createObjectURL(blob);
                     link.download = `irontracker_${session.startTime}.png`;
@@ -121,19 +130,27 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
         }
     };
 
+    // Helper Text for Gauge
+    const getIntensityText = (ratio: number) => {
+        if (ratio >= 115) return "Session intense ! Volume supérieur à la moyenne.";
+        if (ratio >= 90) return "Volume standard. Constance maintenue.";
+        if (ratio >= 70) return "Séance légère ou de récupération.";
+        return "Volume faible par rapport à l'habitude.";
+    };
+
     return (
         <Modal title="Ticket Séance" onClose={onClose}>
             <div className="flex flex-col animate-fade-in space-y-4">
                 {/* RECEIPT CONTAINER (Ce qui sera capturé) */}
-                <div ref={receiptRef} className="bg-surface rounded-none sm:rounded-3xl p-5 font-mono text-xs text-secondary/80 leading-relaxed border-t-4 border-primary/50 relative overflow-hidden shadow-2xl">
+                <div ref={receiptRef} className="bg-surface rounded-none sm:rounded-3xl p-5 font-mono text-xs text-secondary/80 leading-relaxed border-t-4 border-dashed border-primary/50 relative overflow-hidden shadow-2xl">
                     
                     {/* Background Texture Effect */}
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 pointer-events-none"></div>
 
                     {/* HEADER TICKET */}
-                    <div className="text-center pb-4 border-b border-dashed border-white/20 mb-4 space-y-2">
+                    <div className="text-center pb-4 border-b border-dashed border-white/20 mb-4 space-y-2 relative z-10">
                         <div className="uppercase tracking-[0.2em] text-[8px] text-secondary/40 font-bold">IronTracker System Log</div>
-                        <div className="text-xl font-black text-white uppercase break-words tracking-tight">{session.sessionName}</div>
+                        <div className="text-2xl font-black text-white uppercase break-words tracking-tight">{session.sessionName}</div>
                         <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1 text-[10px] font-bold text-secondary">
                             <span className="bg-white/5 px-2 py-0.5 rounded border border-white/5">{session.programName}</span>
                             <span>{dateTimeInfo.dateStr}</span>
@@ -143,7 +160,7 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
                     </div>
 
                     {/* KEY METRICS ROW */}
-                    <div className="grid grid-cols-4 gap-2 text-center pb-4 border-b border-dashed border-white/20 mb-4">
+                    <div className="grid grid-cols-4 gap-2 text-center pb-4 border-b border-dashed border-white/20 mb-4 relative z-10">
                         <div className="flex flex-col">
                             <span className="text-[8px] uppercase opacity-50 mb-1">Durée</span>
                             <span className="font-bold text-white text-sm">{stats.duration}<span className="text-[10px] font-normal opacity-70">m</span></span>
@@ -162,29 +179,50 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
                         </div>
                     </div>
 
-                    {/* INTENSITY BAR (Always Visible now) */}
-                    <div className="pb-4 border-b border-dashed border-white/20 mb-4">
-                        <div className="flex justify-between items-end mb-1">
+                    {/* INTENSITY GAUGE (Rollback Design) */}
+                    <div className="pb-4 border-b border-dashed border-white/20 mb-4 relative z-10 space-y-2">
+                        <div className="flex justify-between items-end">
                             <span className="text-[8px] uppercase font-bold text-secondary">Intensité Relative</span>
                             {stats.hasHistory ? (
-                                <span className={`text-[10px] font-bold ${stats.intensityRatio >= 100 ? 'text-success' : 'text-secondary'}`}>{stats.intensityRatio}% <span className="text-[8px] font-normal opacity-50">vs Moyenne</span></span>
+                                <span className={`text-[10px] font-bold ${stats.intensityRatio >= 100 ? 'text-success' : 'text-secondary'}`}>
+                                    {stats.intensityRatio}%
+                                </span>
                             ) : (
-                                <span className="text-[10px] font-bold text-white/50 italic">Session de Référence</span>
+                                <span className="text-[8px] font-bold text-white/50 italic">Ref. Initiale</span>
                             )}
                         </div>
-                        <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden flex">
-                            <div 
-                                className={`h-full ${!stats.hasHistory ? 'bg-white/20' : stats.intensityRatio >= 100 ? 'bg-gradient-to-r from-success/80 to-success' : 'bg-white/30'}`} 
-                                style={{ width: `${Math.min(100, stats.intensityRatio)}%` }}
-                            />
-                            {stats.hasHistory && stats.intensityRatio > 100 && (
-                                <div className="h-full bg-warning w-1 animate-pulse" style={{ width: `${Math.min(20, stats.intensityRatio - 100)}%` }} />
+                        
+                        {/* Gauge Visual */}
+                        <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden flex border border-white/5 relative">
+                            {/* Marker 100% */}
+                            <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10 z-20"></div>
+                            
+                            {stats.hasHistory && (
+                                <div 
+                                    className={`h-full rounded-full transition-all duration-1000 ${stats.intensityRatio >= 100 ? 'bg-gradient-to-r from-primary to-success' : 'bg-primary'}`}
+                                    style={{ width: `${Math.min(stats.intensityRatio, 100)}%` }}
+                                >
+                                    {stats.intensityRatio > 100 && (
+                                        <div className="animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"></div>
+                                    )}
+                                </div>
                             )}
                         </div>
+
+                        {/* Description Contextuelle */}
+                        {stats.hasHistory ? (
+                            <div className="text-[8px] text-secondary/70 italic text-center pt-1">
+                                "{getIntensityText(stats.intensityRatio)}"
+                            </div>
+                        ) : (
+                            <div className="text-[8px] text-secondary/40 italic text-center pt-1">
+                                Première séance de ce type. La jauge s'activera la prochaine fois.
+                            </div>
+                        )}
                     </div>
 
                     {/* EXERCISES LIST */}
-                    <div className="space-y-5">
+                    <div className="space-y-5 relative z-10">
                         {session.exercises.map((ex, i) => {
                             const lib = library.find(l => l.id === ex.exerciseId);
                             const isCardio = lib?.type === 'Cardio';
@@ -243,14 +281,14 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
                     </div>
 
                     {/* SOCIAL FOOTER (Visible on Capture) */}
-                    <div className="mt-8 pt-4 border-t border-dashed border-white/20 flex justify-between items-end">
+                    <div className="mt-8 pt-4 border-t border-dashed border-white/20 flex justify-between items-end relative z-10">
                         <div className="text-[8px] uppercase tracking-widest text-secondary/50">
                             Generated by
                             <br/>
                             <span className="text-white font-black text-[10px]">IRONTRACKER</span>
                         </div>
                         <div className="text-[8px] text-secondary/30 font-mono">
-                            #{session.id}
+                            #{session.id.toString().slice(-6)}
                         </div>
                     </div>
                 </div>

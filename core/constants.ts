@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   THEME: "iron_v1_theme",
   HAPTIC_TACTILE: "iron_v1_haptic_tactile",
   HAPTIC_SESSION: "iron_v1_haptic_session",
+  NOTIFICATIONS_ENABLED: "iron_v1_notifications_enabled", // New Key
   LAST_SEEN_PR: "iron_v1_last_seen_pr"
 };
 

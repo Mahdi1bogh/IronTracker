@@ -1,7 +1,7 @@
 
 # IronTracker
 
-![Version](https://img.shields.io/badge/version-3.4.0-blue.svg?style=flat-square) 
+![Version](https://img.shields.io/badge/version-3.7.0-blue.svg?style=flat-square) 
 ![React](https://img.shields.io/badge/React-18-61dafb.svg?style=flat-square) 
 ![Status](https://img.shields.io/badge/Status-Production-success.svg?style=flat-square)
 

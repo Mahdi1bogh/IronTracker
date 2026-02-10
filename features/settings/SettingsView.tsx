@@ -28,9 +28,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const resetData = useStore(s => s.resetData);
     const confirm = useConfirm();
 
-    // Local state for haptics to allow immediate UI update
+    // Local state for toggles to allow immediate UI update
     const [hapticTactile, setHapticTactile] = useState(localStorage.getItem(STORAGE_KEYS.HAPTIC_TACTILE) !== 'false');
     const [hapticSession, setHapticSession] = useState(localStorage.getItem(STORAGE_KEYS.HAPTIC_SESSION) !== 'false');
+    const [notifEnabled, setNotifEnabled] = useState(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED) !== 'false');
+
+    const toggleNotif = () => {
+        const newVal = !notifEnabled;
+        setNotifEnabled(newVal);
+        localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, String(newVal));
+        triggerHaptic('click');
+        
+        // Request permission if enabling
+        if (newVal && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    };
 
     return (
       <div className="space-y-6 animate-fade-in pb-20">
@@ -53,7 +66,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </SectionCard>
 
           <SectionCard className="p-6 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Haptique</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-secondary">Feedback & Alertes</h3>
               <div className="space-y-3">
                   <div className="flex justify-between items-center">
                       <span className="font-bold text-sm">Vibrations Tactiles</span>
@@ -75,6 +88,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           triggerHaptic('click'); 
                       }} className={`w-12 h-6 rounded-full transition-colors relative ${hapticSession ? 'bg-primary' : 'bg-surface2'}`}>
                           <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${hapticSession ? 'left-7' : 'left-1'}`} />
+                      </button>
+                  </div>
+                  <div className="flex justify-between items-center">
+                      <div className="flex flex-col">
+                          <span className="font-bold text-sm">Notifications Système</span>
+                          <span className="text-[10px] text-secondary">Pour le chrono en arrière-plan</span>
+                      </div>
+                      <button onClick={toggleNotif} className={`w-12 h-6 rounded-full transition-colors relative ${notifEnabled ? 'bg-primary' : 'bg-surface2'}`}>
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${notifEnabled ? 'left-7' : 'left-1'}`} />
                       </button>
                   </div>
               </div>
@@ -147,8 +169,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               }} className="w-full py-4 bg-danger/10 text-danger font-black uppercase rounded-[2rem] border border-danger/20 hover:bg-danger/20 transition-all">
                   Zone de Danger : Reset
               </button>
-              <div className="text-center mt-4 text-[10px] text-secondary font-mono">
-                  v3.4.0 (Platinum) • IronTracker
+              <div className="text-center mt-4 flex flex-col items-center gap-1">
+                  <div className="text-xs font-black italic text-white uppercase tracking-widest">IronTracker</div>
+                  <div className="text-[10px] text-secondary font-mono flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
+                      v3.7.0 • Onyx Pulse
+                  </div>
               </div>
           </div>
       </div>
