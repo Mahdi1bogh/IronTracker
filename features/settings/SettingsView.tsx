@@ -47,7 +47,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
     return (
       <div className="space-y-6 animate-fade-in pb-20">
-          <h2 className="text-2xl font-bold uppercase px-1 text-neutral-800">Configuration</h2>
+          <h2 className="text-2xl font-bold uppercase px-1 text-white">Configuration</h2>
           
           <SectionCard className="p-6 space-y-4">
               <h3 className="text-sm font-medium uppercase tracking-wider text-secondary">Apparence</h3>
@@ -56,10 +56,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <button 
                          key={key} 
                          onClick={() => { triggerHaptic('tick'); setAccentColor(key as AccentColor); }} 
-                         className={`w-10 h-10 min-w-[2.5rem] rounded-full border-2 flex items-center justify-center transition-all ${accentColor === key ? 'border-neutral-800 scale-110' : 'border-transparent'}`}
+                         className={`w-10 h-10 min-w-[2.5rem] rounded-full border-2 flex items-center justify-center transition-all ${accentColor === key ? 'border-primary scale-110' : 'border-transparent'}`}
                          style={{ backgroundColor: val.primary }}
                       >
-                          {accentColor === key && <span className="text-white bg-neutral-800/50 rounded-full w-4 h-4" />}
+                          {accentColor === key && <span className="text-surface bg-primary rounded-full w-4 h-4" />}
                       </button>
                   ))}
               </div>
@@ -69,7 +69,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <h3 className="text-sm font-medium uppercase tracking-wider text-secondary">Feedback & Alertes</h3>
               <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                      <span className="font-medium text-sm text-neutral-800">Vibrations Tactiles</span>
+                      <span className="font-medium text-sm text-white">Vibrations Tactiles</span>
                       <button onClick={() => { 
                           const newVal = !hapticTactile; 
                           setHapticTactile(newVal); 
@@ -80,7 +80,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </button>
                   </div>
                   <div className="flex justify-between items-center">
-                      <span className="font-medium text-sm text-neutral-800">Vibrations Séance</span>
+                      <span className="font-medium text-sm text-white">Vibrations Séance</span>
                       <button onClick={() => { 
                           const newVal = !hapticSession; 
                           setHapticSession(newVal); 
@@ -92,7 +92,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                   <div className="flex justify-between items-center">
                       <div className="flex flex-col">
-                          <span className="font-medium text-sm text-neutral-800">Notifications Système</span>
+                          <span className="font-medium text-sm text-white">Notifications Système</span>
                           <span className="text-[10px] text-secondary">Pour le chrono en arrière-plan</span>
                       </div>
                       <button onClick={toggleNotif} className={`w-12 h-6 rounded-full transition-colors relative ${notifEnabled ? 'bg-primary' : 'bg-surface2'}`}>

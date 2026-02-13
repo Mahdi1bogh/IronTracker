@@ -23,7 +23,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     const isLogMode = session?.mode === 'log';
 
     return (
-        <header className="fixed top-0 inset-x-0 z-30 bg-white/70 backdrop-blur-md border-b border-border h-16 flex justify-center px-4 transition-all">
+        <header className="fixed top-0 inset-x-0 z-30 bg-surface/80 backdrop-blur-md border-b border-border h-16 flex justify-center px-4 transition-all">
             <div className="w-full max-w-lg flex items-center justify-between">
                 {location.pathname !== '/' && (
                     <button onClick={() => navigate('/')} className="p-2 -ml-2 text-secondary hover:text-primary transition-colors">
@@ -32,7 +32,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 )}
                 
                 {location.pathname === '/' ? (
-                    <h1 className="text-lg font-bold tracking-tight cursor-pointer text-neutral-800">Iron<span className="text-primary font-black">Tracker</span></h1>
+                    <h1 className="text-lg font-bold tracking-tight cursor-pointer text-white">Iron<span className="text-primary font-black">Tracker</span></h1>
                 ) : (
                     <div className="flex-1" />
                 )}

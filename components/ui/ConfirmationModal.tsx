@@ -61,19 +61,19 @@ export const ConfirmationModal: React.FC = () => {
     const isDanger = variant === 'danger';
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black/20 flex items-center justify-center p-6 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white border border-border p-6 rounded-xl w-full max-w-sm shadow-lg space-y-5 animate-zoom-in">
+        <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-6 backdrop-blur-sm animate-fade-in">
+            <div className="bg-surface border border-border p-6 rounded-xl w-full max-w-sm shadow-lg space-y-5 animate-zoom-in">
                
                <div className="flex flex-col items-center gap-2">
                    {isDanger && <Icons.TrendUp className="text-warning rotate-180" size={32} />}
-                   <h3 className={`text-lg font-bold text-center ${isDanger ? 'text-warning' : 'text-neutral-800'}`}>{title || "Confirmation"}</h3>
+                   <h3 className={`text-lg font-bold text-center ${isDanger ? 'text-warning' : 'text-white'}`}>{title || "Confirmation"}</h3>
                </div>
 
                <div className="space-y-2 text-center">
-                   <div className={`font-medium text-sm ${isDanger ? 'text-warning' : 'text-neutral-700'}`}>
+                   <div className={`font-medium text-sm ${isDanger ? 'text-warning' : 'text-secondary'}`}>
                        {isDanger && "⚠️ "}{message}
                    </div>
-                   {subMessage && <div className="text-xs text-secondary whitespace-pre-wrap">{subMessage}</div>}
+                   {subMessage && <div className="text-xs text-secondary/80 whitespace-pre-wrap">{subMessage}</div>}
                </div>
                
                <div className="grid grid-cols-2 gap-3 pt-2">

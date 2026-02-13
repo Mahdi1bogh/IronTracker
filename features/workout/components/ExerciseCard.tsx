@@ -72,7 +72,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                             {!isLast && <button onClick={() => onMove(exoIdx, exoIdx + 1)} className="p-0.5 text-secondary hover:text-primary"><Icons.ChevronDown size={14} /></button>}
                         </div>
                         <div className="min-w-0 flex-1">
-                            <div className="font-bold uppercase text-sm truncate text-neutral-800">{libEx?.name || 'Inconnu'}</div>
+                            <div className="font-bold uppercase text-sm truncate text-white">{libEx?.name || 'Inconnu'}</div>
                             <div className="text-[10px] text-secondary flex justify-between items-center pr-2 mt-0.5">
                                 <span>{exo.target} • {exo.rest}s</span>
                             </div>
@@ -103,17 +103,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         <div className="text-[8px] font-medium uppercase text-secondary mb-1 border-b border-border pb-0.5">Historique</div>
                         <div className="flex justify-between items-center h-4">
                             <span className="text-secondary">Perf.</span>
-                            <span className="text-neutral-700 font-mono font-bold truncate ml-2">{stats.lastSessionString}</span>
+                            <span className="text-white font-mono font-bold truncate ml-2">{stats.lastSessionString}</span>
                         </div>
                         {!isCardio && !isStatic && (
                             <>
                                 <div className="flex justify-between items-center h-4">
                                     <span className="text-secondary">1RM</span>
-                                    <span className="text-neutral-700 font-mono font-bold">{Math.round(stats.lastBestSet?.e1rm || 0)} <span className="text-[8px] font-normal">kg</span></span>
+                                    <span className="text-white font-mono font-bold">{Math.round(stats.lastBestSet?.e1rm || 0)} <span className="text-[8px] font-normal">kg</span></span>
                                 </div>
                                 <div className="flex justify-between items-center h-4">
                                     <span className="text-secondary">Ton.</span>
-                                    <span className="text-neutral-700 font-mono font-bold">{Math.round(stats.lastSessionVolume)} <span className="text-[8px] font-normal">kg</span></span>
+                                    <span className="text-white font-mono font-bold">{Math.round(stats.lastSessionVolume)} <span className="text-[8px] font-normal">kg</span></span>
                                 </div>
                             </>
                         )}
@@ -177,7 +177,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         <div className="col-span-3 relative">
                             <input 
                                 type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "Lvl" : "kg"}
-                                className="w-full bg-surface border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-neutral-800"
+                                className="w-full bg-surface2 border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-white placeholder-secondary"
                                 value={set.weight}
                                 onChange={(e) => onUpdateSet(exoIdx, setIdx, 'weight', e.target.value)}
                             />
@@ -185,7 +185,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         <div className="col-span-3 relative">
                             <input 
                                 type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "Dist" : isStatic ? "T (s)" : "reps"}
-                                className="w-full bg-surface border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-neutral-800"
+                                className="w-full bg-surface2 border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-white placeholder-secondary"
                                 value={set.reps}
                                 onChange={(e) => onUpdateSet(exoIdx, setIdx, 'reps', e.target.value)}
                             />
@@ -193,7 +193,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         <div className="col-span-2 relative">
                             <input 
                                 type="number" min="0" onKeyDown={preventNegative} inputMode="decimal" placeholder={isCardio ? "T (min)" : "RIR"}
-                                className="w-full bg-surface border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-neutral-800"
+                                className="w-full bg-surface2 border border-border p-2 rounded-lg text-center font-mono font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 text-xs text-white placeholder-secondary"
                                 value={set.rir || ''}
                                 onChange={(e) => onUpdateSet(exoIdx, setIdx, 'rir', e.target.value)}
                             />

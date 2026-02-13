@@ -57,7 +57,7 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ onStartPreview }) =>
     return (
       <div className="space-y-6 animate-fade-in pb-24 h-full flex flex-col">
           <div className="flex-shrink-0 space-y-6">
-              <h2 className="text-2xl font-bold uppercase px-1 text-neutral-800">Programmes</h2>
+              <h2 className="text-2xl font-bold uppercase px-1 text-white">Programmes</h2>
               
               <button 
                   onClick={() => { 
@@ -75,7 +75,7 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ onStartPreview }) =>
               {programs.length > 0 ? programs.map(prog => (
                   <SectionCard key={prog.id} className="overflow-hidden">
                       <div className="p-4 bg-surface2 border-b border-border flex justify-between items-center">
-                          <h3 className="font-bold text-lg uppercase truncate pr-2 text-neutral-800">{prog.name}</h3>
+                          <h3 className="font-bold text-lg uppercase truncate pr-2 text-white">{prog.name}</h3>
                           <div className="flex items-center gap-1 flex-shrink-0">
                               <button 
                                   onClick={() => { triggerHaptic('click'); onDuplicateProgram(prog.id); }} 

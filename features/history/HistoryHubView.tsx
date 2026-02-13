@@ -50,7 +50,7 @@ export const HistoryHubView: React.FC<HistoryHubViewProps> = ({ onStartSession }
             {/* HUB HEADER & TABS */}
             <div className="flex flex-col gap-4 mb-4 flex-shrink-0">
                 <div className="flex justify-between items-center px-1">
-                     <h2 className="text-2xl font-bold uppercase text-neutral-800">
+                     <h2 className="text-2xl font-bold uppercase text-white">
                         {activeTab === 'calendar' ? 'Journal' : activeTab === 'records' ? 'Records' : 'Carnet'}
                      </h2>
                      <div className="bg-surface p-1 rounded-lg border border-border flex gap-1">

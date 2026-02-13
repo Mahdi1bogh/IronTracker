@@ -66,7 +66,7 @@ export const WorkoutView: React.FC = () => {
         {/* Header Section */}
         <div className="flex items-start justify-between">
             <div className="text-left">
-                <h2 className="text-2xl font-bold uppercase leading-none text-neutral-800">{session.sessionName}</h2>
+                <h2 className="text-2xl font-bold uppercase leading-none text-white">{session.sessionName}</h2>
                 <div className="flex gap-2 items-center mt-1">
                     <p className="text-secondary text-xs uppercase tracking-wider">{session.programName}</p>
                     {isLogMode && <span className="text-[9px] font-medium bg-primary/10 text-primary px-1.5 rounded uppercase">Mode Saisie</span>}

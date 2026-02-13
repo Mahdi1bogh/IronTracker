@@ -17,7 +17,7 @@ export const DashboardHeader: React.FC = () => {
     return (
         <div className="flex justify-between items-end px-2">
              <div>
-                 <h1 className="text-3xl font-bold tracking-tight text-neutral-800">{greeting}</h1>
+                 <h1 className="text-3xl font-bold tracking-tight text-white">{greeting}</h1>
                  <p className="text-xs font-medium uppercase tracking-wider text-primary">
                      {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                  </p>

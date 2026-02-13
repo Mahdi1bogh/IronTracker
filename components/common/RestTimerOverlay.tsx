@@ -28,7 +28,7 @@ export const RestTimerOverlay: React.FC<RestTimerOverlayProps> = ({
                 transition-all
                 ${showGo 
                     ? 'bg-success/20 border-success text-success scale-110' 
-                    : 'bg-white border-border text-neutral-800'
+                    : 'bg-surface border-border text-white'
                 }
              `}>
                 {/* Timer Display */}
@@ -40,8 +40,8 @@ export const RestTimerOverlay: React.FC<RestTimerOverlayProps> = ({
                        </div>
                    ) : (
                        <>
-                           <span className="text-[9px] font-medium uppercase text-secondary/70 tracking-wider mb-0.5">Repos</span>
-                           <span className="text-3xl font-mono font-bold tracking-tighter leading-none tabular-nums">
+                           <span className="text-[9px] font-medium uppercase text-secondary tracking-wider mb-0.5">Repos</span>
+                           <span className="text-3xl font-mono font-bold tracking-tighter leading-none tabular-nums text-white">
                                {Math.floor(restTime / 60)}:{(restTime % 60).toString().padStart(2, '0')}
                            </span>
                        </>
@@ -49,7 +49,7 @@ export const RestTimerOverlay: React.FC<RestTimerOverlayProps> = ({
                 </div>
 
                 {/* Controls Divider */}
-                {!showGo && <div className="w-px h-8 bg-border mx-1" />}
+                {!showGo && <div className="w-px h-8 bg-border/50 mx-1" />}
 
                 {/* Controls */}
                 {!showGo && (

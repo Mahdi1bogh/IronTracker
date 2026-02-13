@@ -7,7 +7,7 @@ export const LoadingScreen: React.FC = () => (
             <div className="absolute inset-0 rounded-full border-4 border-surface2"></div>
             <div className="absolute inset-0 rounded-full border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
         </div>
-        <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-secondary/70 animate-pulse">
+        <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-secondary animate-pulse">
             Chargement
         </div>
     </div>
