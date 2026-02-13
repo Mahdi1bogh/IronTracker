@@ -1,15 +1,29 @@
 
 {
-  "name": "IronTracker",
+  "name": "IronTracker - Fitness Performance Tracking",
   "short_name": "IronTracker",
   "start_url": "/",
   "id": "/",
   "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#020617",
-  "orientation": "portrait",
-  "description": "Carnet de musculation local-first et minimaliste.",
+  "background_color": "#0f0f0f",
+  "theme_color": "#1a1a1a",
+  "orientation": "portrait-primary",
+  "description": "Track your fitness progress with programs, analytics, and detailed performance metrics",
   "categories": ["fitness", "health", "sports"],
+  "screenshots": [
+    {
+      "src": "/icon.svg",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "1280x720",
+      "type": "image/svg+xml",
+      "form_factor": "wide"
+    }
+  ],
   "icons": [
     {
       "src": "/icon.svg",
@@ -25,23 +39,23 @@
   ],
   "shortcuts": [
     {
-      "name": "S'entraîner",
+      "name": "Start Workout",
       "short_name": "Workout",
-      "description": "Lancer la séance en cours",
+      "description": "Begin your training session",
       "url": "/#/workout",
       "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
     },
     {
-      "name": "Programmes",
-      "short_name": "Programmes",
-      "description": "Gérer mes routines",
+      "name": "Programs",
+      "short_name": "Programs",
+      "description": "Manage your training routines",
       "url": "/#/programs",
       "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
     },
     {
-      "name": "Stats",
+      "name": "Analytics",
       "short_name": "Stats",
-      "description": "Voir ma progression",
+      "description": "View your performance progress",
       "url": "/#/analytics",
       "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
     }
